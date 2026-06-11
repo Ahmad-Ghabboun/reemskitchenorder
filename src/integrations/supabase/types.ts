@@ -14,7 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      menu_items: {
+        Row: {
+          created_at: string
+          default_ingredients: string[]
+          id: string
+          name: string
+          price: number
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          default_ingredients?: string[]
+          id?: string
+          name: string
+          price?: number
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          default_ingredients?: string[]
+          id?: string
+          name?: string
+          price?: number
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          menu_item_id: string | null
+          name_snapshot: string
+          notes: string
+          order_id: string
+          position: number
+          quantity: number
+          removed_ingredients: string[]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          menu_item_id?: string | null
+          name_snapshot: string
+          notes?: string
+          order_id: string
+          position?: number
+          quantity?: number
+          removed_ingredients?: string[]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          menu_item_id?: string | null
+          name_snapshot?: string
+          notes?: string
+          order_id?: string
+          position?: number
+          quantity?: number
+          removed_ingredients?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          order_number: number
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          order_number?: number
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          order_number?: number
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
