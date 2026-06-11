@@ -86,27 +86,37 @@ function AdminPage() {
   };
 
   const save = async () => {
-    const payload = {
-      name: draft.name.trim(),
+    if (!activeEvent) {
+      toast.error("No active event");
+      return;
+    }
+    const name = draft.name.trim();
+    if (!name) {
+      toast.error("Name is required");
+      return;
+    }
+    const basePayload = {
+      name,
       price: Number(draft.price) || 0,
       default_ingredients: draft.ingredients,
       sort_order: Number(draft.sort_order) || 0,
     };
-    if (!payload.name) {
-      toast.error("Name is required");
-      return;
-    }
     if (editing) {
-      const { error } = await supabase.from("menu_items").update(payload).eq("id", draft.id!);
+      const { error } = await supabase
+        .from("menu_items")
+        .update(basePayload)
+        .eq("id", draft.id!);
       if (error) return toast.error("Save failed");
       toast.success("Updated");
     } else {
-      const { error } = await supabase.from("menu_items").insert(payload);
+      const { error } = await supabase
+        .from("menu_items")
+        .insert({ ...basePayload, event_id: activeEvent.id });
       if (error) return toast.error("Save failed");
       toast.success("Added");
     }
     resetDraft();
-    load();
+    load(activeEvent.id);
   };
 
   const del = async (m: MenuItem) => {
@@ -114,8 +124,9 @@ function AdminPage() {
     const { error } = await supabase.from("menu_items").delete().eq("id", m.id);
     if (error) return toast.error("Delete failed");
     if (draft.id === m.id) resetDraft();
-    load();
+    load(activeEvent?.id ?? null);
   };
+
 
   const addIng = () => {
     const v = newIng.trim();
