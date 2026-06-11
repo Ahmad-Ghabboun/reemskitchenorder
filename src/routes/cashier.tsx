@@ -216,11 +216,14 @@ function CashierPage() {
           ))}
           {menu.length === 0 && (
             <div className="col-span-2 text-center text-muted-foreground py-8">
-              {activeEvent
-                ? <>No menu items in <span className="font-bold text-foreground">{activeEvent.name}</span>. Add some in <Link to="/admin" className="text-primary underline">Admin</Link>.</>
-                : <>No active event. Go to <Link to="/events" className="text-primary underline">Events</Link> to activate one.</>}
+              {loadError
+                ? <span className="text-destructive font-bold">Menu unavailable — check connection.</span>
+                : activeEvent
+                  ? <>No menu items in <span className="font-bold text-foreground">{activeEvent.name}</span>. Add some in <Link to="/admin" className="text-primary underline">Admin</Link>.</>
+                  : <>No active event. Go to <Link to="/events" className="text-primary underline">Events</Link> to activate one.</>}
             </div>
           )}
+
 
         </div>
       </section>
