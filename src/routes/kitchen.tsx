@@ -1,9 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Check, ArrowLeft } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ArrowLeft, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { AudioEngine } from "@/lib/booth-audio";
 import type { Order, OrderItem } from "@/lib/booth-types";
+
+const LS_KITCHEN_AUDIO_UNLOCKED = "booth_kitchen_audio_unlocked";
+const LS_KITCHEN_MUTED = "booth_kitchen_muted";
+
 
 export const Route = createFileRoute("/kitchen")({
   head: () => ({
@@ -29,6 +34,51 @@ function KitchenPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [now, setNow] = useState(() => Date.now());
+  const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem(LS_KITCHEN_AUDIO_UNLOCKED) === "1";
+  });
+  const [muted, setMuted] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(LS_KITCHEN_MUTED) === "1";
+  });
+  const engineRef = useRef<AudioEngine | null>(null);
+  const audioReadyRef = useRef(false);
+
+  // Init engine once
+  useEffect(() => {
+    const eng = new AudioEngine();
+    eng.setMuted(muted);
+    engineRef.current = eng;
+    return () => {
+      eng.dispose();
+      engineRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(LS_KITCHEN_MUTED, muted ? "1" : "0");
+    engineRef.current?.setMuted(muted);
+  }, [muted]);
+
+  const enableAudio = async () => {
+    const ok = await engineRef.current?.unlock();
+    if (ok) {
+      sessionStorage.setItem(LS_KITCHEN_AUDIO_UNLOCKED, "1");
+      setAudioUnlocked(true);
+      audioReadyRef.current = true;
+    }
+  };
+
+  // If unlock flag persisted from session, unlock engine silently on mount
+  useEffect(() => {
+    if (audioUnlocked && !audioReadyRef.current) {
+      engineRef.current?.unlock().then((ok) => {
+        if (ok) audioReadyRef.current = true;
+      });
+    }
+  }, [audioUnlocked]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -38,6 +88,7 @@ function KitchenPage() {
   useEffect(() => {
     let active = true;
     const load = async () => {
+
       const { data: o } = await supabase
         .from("orders")
         .select("*")
@@ -60,9 +111,20 @@ function KitchenPage() {
     load();
     const ch = supabase
       .channel("kitchen_live")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "orders" },
+        (payload) => {
+          const row = payload.new as Partial<Order> | undefined;
+          if (row?.status === "pending" && audioReadyRef.current) {
+            engineRef.current?.chime();
+          }
+        },
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, load)
       .subscribe();
+
     return () => {
       active = false;
       supabase.removeChannel(ch);
@@ -96,10 +158,18 @@ function KitchenPage() {
           <ArrowLeft className="w-6 h-6" />
         </Link>
         <h1 className="text-3xl font-black tracking-tight">Kitchen</h1>
-        <span className="ml-auto px-4 py-2 rounded-xl bg-card border border-border text-2xl font-black">
+        <button
+          onClick={() => setMuted((m) => !m)}
+          className="ml-auto p-3 rounded-xl bg-card border border-border active:scale-95"
+          aria-label={muted ? "Unmute chime" : "Mute chime"}
+        >
+          {muted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
+        </button>
+        <span className="px-4 py-2 rounded-xl bg-card border border-border text-2xl font-black">
           {orders.length} <span className="text-base font-semibold text-muted-foreground">pending</span>
         </span>
       </header>
+
 
       <main className="p-6">
         {orders.length === 0 ? (
@@ -161,6 +231,20 @@ function KitchenPage() {
           </div>
         )}
       </main>
+
+      {!audioUnlocked && (
+        <button
+          onClick={enableAudio}
+          className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col items-center justify-center gap-4 p-8 text-center"
+        >
+          <Volume2 className="w-16 h-16 text-primary" />
+          <div className="text-4xl font-black">Enable Sounds</div>
+          <div className="text-xl text-muted-foreground max-w-md">
+            Tap anywhere to enable the new-order chime on this device.
+          </div>
+        </button>
+      )}
     </div>
+
   );
 }

@@ -85,6 +85,30 @@ export class AudioEngine {
     playOne(t0 + 0.22, 1175);
   }
 
+  // Pleasant one-shot two-note bell chime (E6 -> A6). Respects mute/volume.
+  chime() {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const ctx = this.ctx;
+    const t0 = ctx.currentTime;
+    const playBell = (start: number, freq: number, dur: number) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "triangle";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.6, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      o.connect(g);
+      g.connect(this.masterGain!);
+      o.start(start);
+      o.stop(start + dur + 0.05);
+    };
+    playBell(t0, 1318.5, 0.45); // E6
+    playBell(t0 + 0.18, 1760, 0.6); // A6
+  }
+
+
+
   startLoop() {
     if (this.loopTimer) return;
     this.beep();

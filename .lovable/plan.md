@@ -1,76 +1,34 @@
-# Order Ready Alert System
+## Goal
 
-Add a third order status `ready` between `pending` and `done`. Kitchen marks orders ready → cashier device alerts loudly until each is picked up.
+Item #1 (cashier ready alerts) is already implemented from the previous turn. This update adds **Item #2: a pleasant one-shot chime on `/kitchen` when a new pending order arrives**, plus a small audit pass on Item #1 to confirm everything is wired correctly.
 
-## Backend
+## Changes
 
-- No schema change needed — `orders.status` is already free-form text. Just use a new value `'ready'`.
-- Kitchen "Done" button: update from `status='pending', completed_at=null` to `status='ready', ready_at=now()`.
-  - Add a `ready_at timestamptz` column to `orders` (nullable) so we can order alerts oldest-first and show wait time.
-- Final pickup writes `status='done', completed_at=now()`.
+### 1. `src/lib/booth-audio.ts` — add a one-shot chime method
 
-## `/kitchen` changes
+Add a `chime()` method to the existing `AudioEngine` class. Two-note bell-like tone using oscillators with a soft exponential decay envelope (e.g. E6 → A6, ~600ms total, triangle wave through gain). Respects mute/volume. No looping, no asset.
 
-- Query/subscription filter stays `status = 'pending'` (ready orders disappear from kitchen, same as today).
-- "Done" button writes `status='ready', ready_at=now()` instead of `done`.
+### 2. `src/routes/kitchen.tsx` — play chime on new pending orders
 
-## `/cashier` changes
+- Add a one-time "Enable Sounds" full-screen overlay (same pattern as cashier), gated by `sessionStorage` key `booth_kitchen_audio_unlocked`.
+- Instantiate an `AudioEngine` ref on mount; call `unlock()` when user taps the overlay.
+- In the existing realtime channel, add a dedicated listener for `INSERT` on `orders` (separate from the generic `load` handler) that calls `engine.chime()` — only fires when `audioUnlocked` is true.
+  - Use a separate `.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, ...)` so updates (e.g. status → ready) don't trigger the chime.
+- Add a small mute toggle in the kitchen header (icon-only, persisted to `localStorage` under `booth_kitchen_muted`) so the kitchen can silence it if needed.
+- Dispose engine on unmount.
 
-### Realtime subscription
+### 3. Audit pass on Item #1 (no functional change expected)
 
-- New channel subscribed to `orders` where `status='ready'`, plus their `order_items`.
-- Maintain a `readyOrders` list (oldest `ready_at` first).
-
-### Alert UI
-
-- Prominent fixed banner/list above the menu (or as a full-width overlay strip at top) showing each ready order as a card:
-  - Big order number (`#12`)
-  - All items with quantity, removed ingredients ("NO onions" red chips), notes
-  - Two large buttons: **Picked Up** (green) and **Snooze** (secondary)
-- Stacks vertically when multiple are ready.
-
-### Audio
-
-- Add a short alert tone asset (`src/assets/alert.mp3`) OR generate via WebAudio oscillator (no asset, avoids binary file). I'll use WebAudio oscillator beep (2 quick beeps) scheduled on a `setInterval` every 2.5s — works offline, no asset to bundle.
-- One-time "Enable Sounds" gate: on first load, show a full-screen tap-to-enable overlay. Tap creates/resumes the `AudioContext` and plays a silent buffer to unlock iOS audio. Persist "unlocked" in `sessionStorage` so it doesn't reappear on every nav within the session.
-- Looping logic: while any non-snoozed ready order exists AND not muted, beep every 2.5s. Stop when list empty or all snoozed or muted.
-
-### Mute / volume
-
-- Header toggle: mute button (icon) + volume slider. State kept in component + persisted to `localStorage`.
-
-### Snooze
-
-- "Snooze" marks that order's id as snoozed until `Date.now() + 75_000` in component state (Map<orderId, untilMs>).
-- A `setInterval(1000)` clears expired snoozes → order reappears and beeping resumes.
-- Snooze state is local to device only (not persisted across reload — acceptable; reload re-alerts).
-
-### Picked Up
-
-- Updates DB: `status='done', completed_at=now()`. Realtime removes it from list; if list becomes empty/all snoozed, beep stops.
-
-### Screen Wake Lock
-
-- On mount (after sounds enabled), request `navigator.wakeLock.request('screen')`.
-- Re-acquire on `visibilitychange` when page becomes visible (wake lock auto-releases on hide).
-- Release on unmount. Silently no-op if API unsupported (older iOS).
+Verify, no edits unless a bug surfaces:
+- `ready_at` column exists on `orders` and is in the generated types.
+- Kitchen `markDone` writes `status='ready', ready_at=now()`.
+- `ReadyAlerts` subscribes to `status='ready'`, supports snooze/picked-up, mute/volume, collapse, wake lock, and the enable-sounds overlay is wired from `/cashier`.
 
 ## Files
 
-- `supabase/migrations/<new>.sql` — add `ready_at timestamptz` to `orders`.
-- `src/routes/kitchen.tsx` — change `markDone` to set `status='ready', ready_at=now()`.
-- `src/routes/cashier.tsx` — add ready-orders subscription, alert UI, audio engine, snooze map, mute toggle, wake lock, enable-sounds gate.
-- `src/lib/booth-audio.ts` — small helper: `AudioEngine` class wrapping WebAudio (unlock, beep, mute, volume).
-- `src/lib/booth-types.ts` — extend `Order` with `ready_at: string | null`.
+- `src/lib/booth-audio.ts` — add `chime()` method
+- `src/routes/kitchen.tsx` — enable-sounds overlay, engine ref, INSERT listener → chime, mute toggle
 
 ## Open question
 
-Beep style: should it be a short urgent double-beep (default I'll use), or do you want a specific sound file uploaded? I'll default to a synthesized double-beep so nothing extra is needed.  
-  
-**Additions to Order Ready Alert System plan:**
-
-**Beep style:** Yes, default to the synthesized double-beep — no audio file needed.
-
-**Ready list height constraint:** The ready-orders banner/list should have a `max-height` with internal vertical scroll (rather than pushing the menu/cart down indefinitely). This keeps the menu and "Send Order" button accessible even when 3+ orders are ready at once.
-
-**Collapse/expand toggle:** Add a collapse/expand control to the ready banner — when collapsed, it shrinks to a slim bar showing just a count badge (e.g. "🔔 2 ready") while still blinking and still triggering audio; expanding reveals the full stacked cards. State can be local to the component (no need to persist).
+Chime character: **soft two-note bell (E6→A6, ~600ms)** by default — okay, or do you want something more distinctive (e.g. three-note ascending, or a single ding)?
