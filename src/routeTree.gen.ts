@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as KitchenRouteImport } from './routes/kitchen'
+import { Route as EventsRouteImport } from './routes/events'
 import { Route as CashierRouteImport } from './routes/cashier'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +18,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const KitchenRoute = KitchenRouteImport.update({
   id: '/kitchen',
   path: '/kitchen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CashierRoute = CashierRouteImport.update({
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/cashier': typeof CashierRoute
+  '/events': typeof EventsRoute
   '/kitchen': typeof KitchenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/cashier': typeof CashierRoute
+  '/events': typeof EventsRoute
   '/kitchen': typeof KitchenRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/cashier': typeof CashierRoute
+  '/events': typeof EventsRoute
   '/kitchen': typeof KitchenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/cashier' | '/kitchen'
+  fullPaths: '/' | '/admin' | '/cashier' | '/events' | '/kitchen'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/cashier' | '/kitchen'
-  id: '__root__' | '/' | '/admin' | '/cashier' | '/kitchen'
+  to: '/' | '/admin' | '/cashier' | '/events' | '/kitchen'
+  id: '__root__' | '/' | '/admin' | '/cashier' | '/events' | '/kitchen'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   CashierRoute: typeof CashierRoute
+  EventsRoute: typeof EventsRoute
   KitchenRoute: typeof KitchenRoute
 }
 
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/kitchen'
       fullPath: '/kitchen'
       preLoaderRoute: typeof KitchenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cashier': {
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   CashierRoute: CashierRoute,
+  EventsRoute: EventsRoute,
   KitchenRoute: KitchenRoute,
 }
 export const routeTree = rootRouteImport

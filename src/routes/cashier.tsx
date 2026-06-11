@@ -4,7 +4,7 @@ import { Plus, Minus, X, Send, ArrowLeft, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ReadyAlerts } from "@/components/ReadyAlerts";
-import type { MenuItem, CartLine } from "@/lib/booth-types";
+import type { MenuItem, CartLine, Event } from "@/lib/booth-types";
 
 const LS_AUDIO_UNLOCKED = "booth_cashier_audio_unlocked";
 
@@ -25,6 +25,7 @@ function uid() {
 
 function CashierPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
+  const [activeEvent, setActiveEvent] = useState<Event | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [sending, setSending] = useState(false);
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() => {
@@ -39,24 +40,44 @@ function CashierPage() {
 
   useEffect(() => {
     let active = true;
-    const load = async () => {
+    const loadMenu = async (eventId: string | null) => {
+      if (!eventId) {
+        if (active) setMenu([]);
+        return;
+      }
       const { data } = await supabase
         .from("menu_items")
         .select("*")
+        .eq("event_id", eventId)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
       if (active && data) setMenu(data as MenuItem[]);
     };
-    load();
+    const loadActive = async () => {
+      const { data } = await supabase
+        .from("events")
+        .select("*")
+        .eq("is_active", true)
+        .maybeSingle();
+      if (!active) return;
+      const ev = (data as Event | null) ?? null;
+      setActiveEvent(ev);
+      loadMenu(ev?.id ?? null);
+    };
+    loadActive();
     const ch = supabase
       .channel("menu_items_cashier")
-      .on("postgres_changes", { event: "*", schema: "public", table: "menu_items" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "menu_items" }, loadActive)
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, loadActive)
       .subscribe();
+
     return () => {
       active = false;
       supabase.removeChannel(ch);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const addToCart = (m: MenuItem) => {
     setCart((c) => [
@@ -167,9 +188,12 @@ function CashierPage() {
           ))}
           {menu.length === 0 && (
             <div className="col-span-2 text-center text-muted-foreground py-8">
-              No menu items. Add some in <Link to="/admin" className="text-primary underline">Admin</Link>.
+              {activeEvent
+                ? <>No menu items in <span className="font-bold text-foreground">{activeEvent.name}</span>. Add some in <Link to="/admin" className="text-primary underline">Admin</Link>.</>
+                : <>No active event. Go to <Link to="/events" className="text-primary underline">Events</Link> to activate one.</>}
             </div>
           )}
+
         </div>
       </section>
 

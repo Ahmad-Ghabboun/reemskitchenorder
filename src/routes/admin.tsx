@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Trash2, ArrowLeft, Save, X } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Save, X, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import type { MenuItem } from "@/lib/booth-types";
+import type { MenuItem, Event } from "@/lib/booth-types";
+
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -27,21 +28,46 @@ const empty: Draft = { name: "", price: "0", ingredients: [], sort_order: 0 };
 
 function AdminPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [activeEvent, setActiveEvent] = useState<Event | null>(null);
   const [draft, setDraft] = useState<Draft>(empty);
   const [newIng, setNewIng] = useState("");
   const editing = !!draft.id;
 
-  const load = async () => {
+  const load = async (eventId: string | null) => {
+    if (!eventId) {
+      setItems([]);
+      return;
+    }
     const { data } = await supabase
       .from("menu_items")
       .select("*")
+      .eq("event_id", eventId)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
     if (data) setItems(data as MenuItem[]);
   };
+
   useEffect(() => {
-    load();
+    const loadActive = async () => {
+      const { data } = await supabase
+        .from("events")
+        .select("*")
+        .eq("is_active", true)
+        .maybeSingle();
+      const ev = (data as Event | null) ?? null;
+      setActiveEvent(ev);
+      load(ev?.id ?? null);
+    };
+    loadActive();
+    const ch = supabase
+      .channel("admin_active_event")
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, loadActive)
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, []);
+
 
   const resetDraft = () => {
     setDraft(empty);
@@ -60,27 +86,37 @@ function AdminPage() {
   };
 
   const save = async () => {
-    const payload = {
-      name: draft.name.trim(),
+    if (!activeEvent) {
+      toast.error("No active event");
+      return;
+    }
+    const name = draft.name.trim();
+    if (!name) {
+      toast.error("Name is required");
+      return;
+    }
+    const basePayload = {
+      name,
       price: Number(draft.price) || 0,
       default_ingredients: draft.ingredients,
       sort_order: Number(draft.sort_order) || 0,
     };
-    if (!payload.name) {
-      toast.error("Name is required");
-      return;
-    }
     if (editing) {
-      const { error } = await supabase.from("menu_items").update(payload).eq("id", draft.id!);
+      const { error } = await supabase
+        .from("menu_items")
+        .update(basePayload)
+        .eq("id", draft.id!);
       if (error) return toast.error("Save failed");
       toast.success("Updated");
     } else {
-      const { error } = await supabase.from("menu_items").insert(payload);
+      const { error } = await supabase
+        .from("menu_items")
+        .insert({ ...basePayload, event_id: activeEvent.id });
       if (error) return toast.error("Save failed");
       toast.success("Added");
     }
     resetDraft();
-    load();
+    load(activeEvent.id);
   };
 
   const del = async (m: MenuItem) => {
@@ -88,8 +124,9 @@ function AdminPage() {
     const { error } = await supabase.from("menu_items").delete().eq("id", m.id);
     if (error) return toast.error("Delete failed");
     if (draft.id === m.id) resetDraft();
-    load();
+    load(activeEvent?.id ?? null);
   };
+
 
   const addIng = () => {
     const v = newIng.trim();
@@ -110,7 +147,26 @@ function AdminPage() {
         <h1 className="text-xl font-black tracking-tight">Menu Admin</h1>
       </header>
 
+      <div className="max-w-4xl mx-auto px-4 pt-4">
+        <Link
+          to="/events"
+          className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 active:scale-[0.99]"
+        >
+          <Calendar className="w-5 h-5 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold">
+              Active event
+            </div>
+            <div className="font-black truncate">
+              {activeEvent?.name ?? "None — tap to create or activate one"}
+            </div>
+          </div>
+          <span className="text-sm font-bold text-primary">Switch</span>
+        </Link>
+      </div>
+
       <main className="max-w-4xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+
         <section>
           <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-3">
             Items

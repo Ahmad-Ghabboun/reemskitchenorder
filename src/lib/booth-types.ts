@@ -5,6 +5,14 @@ export type MenuItem = {
   default_ingredients: string[];
   sort_order: number;
   created_at: string;
+  event_id: string | null;
+};
+
+export type Event = {
+  id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
 };
 
 export type Order = {
