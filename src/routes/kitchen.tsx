@@ -80,11 +80,11 @@ function KitchenPage() {
     setOrders((c) => c.filter((x) => x.id !== o.id));
     const { error } = await supabase
       .from("orders")
-      .update({ status: "done", completed_at: new Date().toISOString() })
+      .update({ status: "ready", ready_at: new Date().toISOString() })
       .eq("id", o.id);
     if (error) {
       console.error(error);
-      toast.error("Failed to mark done");
+      toast.error("Failed to mark ready");
       setOrders(prev);
     }
   };
@@ -153,7 +153,7 @@ function KitchenPage() {
                     className="w-full h-20 bg-success text-success-foreground font-black text-2xl flex items-center justify-center gap-3 active:scale-[0.98] transition-transform"
                   >
                     <Check className="w-8 h-8" />
-                    Done
+                    Ready
                   </button>
                 </article>
               );

@@ -1,79 +1,76 @@
-# Food Booth Ordering System
+# Order Ready Alert System
 
-A two-device real-time ordering app: iPhone takes orders, iPad shows the kitchen queue, both synced via Supabase realtime. No auth, no payments.
+Add a third order status `ready` between `pending` and `done`. Kitchen marks orders ready → cashier device alerts loudly until each is picked up.
 
-## Routes
+## Backend
 
-- `/cashier` — iPhone, single-column, thumb-friendly menu + cart + Send Order
-- `/kitchen` — iPad, grid of live order cards with Done button
-- `/admin` — simple CRUD for menu items and their default ingredients
-- `/` — landing with three big buttons linking to the three routes
+- No schema change needed — `orders.status` is already free-form text. Just use a new value `'ready'`.
+- Kitchen "Done" button: update from `status='pending', completed_at=null` to `status='ready', ready_at=now()`.
+  - Add a `ready_at timestamptz` column to `orders` (nullable) so we can order alerts oldest-first and show wait time.
+- Final pickup writes `status='done', completed_at=now()`.
 
-## Backend (Lovable Cloud / Supabase)
+## `/kitchen` changes
 
-Enable Lovable Cloud. No auth required — tables are publicly readable/writable (booth-only internal tool, single LAN-ish use). I'll note this tradeoff; if you'd rather lock it behind a shared PIN later we can add that.
+- Query/subscription filter stays `status = 'pending'` (ready orders disappear from kitchen, same as today).
+- "Done" button writes `status='ready', ready_at=now()` instead of `done`.
 
-Tables:
+## `/cashier` changes
 
-- `menu_items` — `id`, `name`, `price` (numeric), `default_ingredients` (text[]), `sort_order`, `created_at`
-- `orders` — `id`, `order_number` (int, sequential via Postgres sequence), `status` ('pending' | 'done'), `created_at`, `completed_at`
-- `order_items` — `id`, `order_id` (fk), `menu_item_id` (fk, nullable on delete set null), `name_snapshot`, `quantity`, `removed_ingredients` (text[]), `notes` (text)
+### Realtime subscription
 
-Sequential order numbers come from a Postgres sequence so numbers never collide across devices. Realtime enabled on `orders` and `order_items`.
+- New channel subscribed to `orders` where `status='ready'`, plus their `order_items`.
+- Maintain a `readyOrders` list (oldest `ready_at` first).
 
-Permissive RLS policies (anon select/insert/update/delete) since there's no login. Menu management is on the same open policy — fine for an internal device, easy to tighten later.
+### Alert UI
 
-## Cashier View (`/cashier`)
+- Prominent fixed banner/list above the menu (or as a full-width overlay strip at top) showing each ready order as a card:
+  - Big order number (`#12`)
+  - All items with quantity, removed ingredients ("NO onions" red chips), notes
+  - Two large buttons: **Picked Up** (green) and **Snooze** (secondary)
+- Stacks vertically when multiple are ready.
 
-- Top: scrollable menu grid (2 cols on phone) — each tile shows name + price, big tap target
-- Tap a tile → adds line to cart with all default ingredients selected
-- Cart section below menu, each line shows:
-  - Item name + qty stepper (− 1 +) with large buttons
-  - Ingredient chips: tap to toggle removed (strikethrough + minus prefix, distinct color)
-  - Notes input (single-line, expands)
-  - Remove line (X)
-- Sticky bottom "Send Order" button (full width, large). On send:
-  - Insert order + items in a single RPC/transaction, get back order_number
-  - Toast: "Order #12 sent" for ~1.5s
-  - Clear cart
+### Audio
 
-## Kitchen Display (`/kitchen`)
+- Add a short alert tone asset (`src/assets/alert.mp3`) OR generate via WebAudio oscillator (no asset, avoids binary file). I'll use WebAudio oscillator beep (2 quick beeps) scheduled on a `setInterval` every 2.5s — works offline, no asset to bundle.
+- One-time "Enable Sounds" gate: on first load, show a full-screen tap-to-enable overlay. Tap creates/resumes the `AudioContext` and plays a silent buffer to unlock iOS audio. Persist "unlocked" in `sessionStorage` so it doesn't reappear on every nav within the session.
+- Looping logic: while any non-snoozed ready order exists AND not muted, beep every 2.5s. Stop when list empty or all snoozed or muted.
 
-- Header: title + live order count
-- Grid of cards (2–3 cols on iPad landscape), oldest first
-- Each card: large order #, time ago (auto-updating), list of items with qty, removed ingredients shown bold/red as "NO onions", notes block
-- Big "Done" button at bottom of card → updates status to 'done' (row disappears on both devices instantly via realtime)
-- Realtime subscription on `orders` filtered to `status=pending`; refetch items when a new order appears
+### Mute / volume
 
-## Admin (`/admin`)
+- Header toggle: mute button (icon) + volume slider. State kept in component + persisted to `localStorage`.
 
-- List of menu items with edit/delete
-- Add/edit form: name, price, ingredients (add/remove rows of text inputs), sort order
-- Changes propagate to cashier via realtime subscription on `menu_items`
+### Snooze
 
-## Design
+- "Snooze" marks that order's id as snoozed until `Date.now() + 75_000` in component state (Map<orderId, untilMs>).
+- A `setInterval(1000)` clears expired snoozes → order reappears and beeping resumes.
+- Snooze state is local to device only (not persisted across reload — acceptable; reload re-alerts).
 
-- High-contrast palette: near-black background or white background with bold accent (warm orange/red for primary action, green for Done, red for removed ingredients)
-- System font stack, large sizes (cashier base 16–18, kitchen 20–24, order numbers 48+)
-- Minimum 44pt tap targets everywhere
-- No fancy animations — only a brief toast for "Order sent"
-- Tailwind tokens defined in `src/styles.css` (semantic colors), no hardcoded colors in components
+### Picked Up
 
-## Technical Details
+- Updates DB: `status='done', completed_at=now()`. Realtime removes it from list; if list becomes empty/all snoozed, beep stops.
 
-- TanStack Start file routes: `src/routes/cashier.tsx`, `src/routes/kitchen.tsx`, `src/routes/admin.tsx`, update `index.tsx` as launcher
-- Supabase browser client for queries + realtime channels (these are public/anon flows, no server fns needed)
-- Cart state local to cashier route (React state) — only sent to Supabase on "Send Order"
-- Order number via `nextval('order_number_seq')` in a SQL function `create_order(items jsonb)` that inserts order + items atomically and returns the new order
+### Screen Wake Lock
 
-## Open Questions
+- On mount (after sounds enabled), request `navigator.wakeLock.request('screen')`.
+- Re-acquire on `visibilitychange` when page becomes visible (wake lock auto-releases on hide).
+- Release on unmount. Silently no-op if API unsupported (older iOS).
 
-Before I build, two quick choices (I'll pick sensible defaults if you don't say):
+## Files
 
-1. Color theme — bold dark mode (black + orange) or bright light mode (white + red)?
-2. Should completed orders be hard-deleted, or kept (status='done') for any later review? I'd default to keeping them in the DB but hiding from the kitchen view.  
+- `supabase/migrations/<new>.sql` — add `ready_at timestamptz` to `orders`.
+- `src/routes/kitchen.tsx` — change `markDone` to set `status='ready', ready_at=now()`.
+- `src/routes/cashier.tsx` — add ready-orders subscription, alert UI, audio engine, snooze map, mute toggle, wake lock, enable-sounds gate.
+- `src/lib/booth-audio.ts` — small helper: `AudioEngine` class wrapping WebAudio (unlock, beep, mute, volume).
+- `src/lib/booth-types.ts` — extend `Order` with `ready_at: string | null`.
+
+## Open question
+
+Beep style: should it be a short urgent double-beep (default I'll use), or do you want a specific sound file uploaded? I'll default to a synthesized double-beep so nothing extra is needed.  
   
-Color theme: bold dark mode (black background, orange/red accents for primary actions and alerts, green for Done).
-3. Completed orders: keep them in the database with status='done', just hide them from the kitchen view (no hard delete).
+**Additions to Order Ready Alert System plan:**
 
-Proceed with the rest of the plan as outlined.
+**Beep style:** Yes, default to the synthesized double-beep — no audio file needed.
+
+**Ready list height constraint:** The ready-orders banner/list should have a `max-height` with internal vertical scroll (rather than pushing the menu/cart down indefinitely). This keeps the menu and "Send Order" button accessible even when 3+ orders are ready at once.
+
+**Collapse/expand toggle:** Add a collapse/expand control to the ready banner — when collapsed, it shrinks to a slim bar showing just a count badge (e.g. "🔔 2 ready") while still blinking and still triggering audio; expanding reveals the full stacked cards. State can be local to the component (no need to persist).

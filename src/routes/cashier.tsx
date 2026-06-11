@@ -1,9 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Minus, X, Send, ArrowLeft } from "lucide-react";
+import { Plus, Minus, X, Send, ArrowLeft, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ReadyAlerts } from "@/components/ReadyAlerts";
 import type { MenuItem, CartLine } from "@/lib/booth-types";
+
+const LS_AUDIO_UNLOCKED = "booth_cashier_audio_unlocked";
 
 export const Route = createFileRoute("/cashier")({
   head: () => ({
@@ -24,6 +27,15 @@ function CashierPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [sending, setSending] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem(LS_AUDIO_UNLOCKED) === "1";
+  });
+
+  const enableAudio = () => {
+    sessionStorage.setItem(LS_AUDIO_UNLOCKED, "1");
+    setAudioUnlocked(true);
+  };
 
   useEffect(() => {
     let active = true;
@@ -121,6 +133,24 @@ function CashierPage() {
           {cart.length} {cart.length === 1 ? "item" : "items"}
         </span>
       </header>
+
+      <ReadyAlerts audioUnlocked={audioUnlocked} onRequestUnlock={enableAudio} />
+
+      {!audioUnlocked && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex items-center justify-center p-6">
+          <button
+            onClick={enableAudio}
+            className="w-full max-w-sm rounded-2xl bg-primary text-primary-foreground p-6 flex flex-col items-center gap-3 active:scale-[0.98] shadow-2xl"
+          >
+            <Volume2 className="w-10 h-10" />
+            <span className="font-black text-2xl">Enable Sounds</span>
+            <span className="text-sm font-semibold opacity-90 text-center">
+              Tap to allow order-ready alerts on this device. Required once per session.
+            </span>
+          </button>
+        </div>
+      )}
+
 
       <section className="px-4 pt-4">
         <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">Menu</h2>
