@@ -67,11 +67,10 @@ function CashierPage() {
     loadActive();
     const ch = supabase
       .channel("menu_items_cashier")
-      .on("postgres_changes", { event: "*", schema: "public", table: "menu_items" }, () =>
-        loadMenu(activeEvent?.id ?? null),
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "menu_items" }, loadActive)
       .on("postgres_changes", { event: "*", schema: "public", table: "events" }, loadActive)
       .subscribe();
+
     return () => {
       active = false;
       supabase.removeChannel(ch);
