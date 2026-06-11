@@ -111,9 +111,20 @@ function KitchenPage() {
     load();
     const ch = supabase
       .channel("kitchen_live")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "orders" },
+        (payload) => {
+          const row = payload.new as Partial<Order> | undefined;
+          if (row?.status === "pending" && audioReadyRef.current) {
+            engineRef.current?.chime();
+          }
+        },
+      )
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, load)
       .subscribe();
+
     return () => {
       active = false;
       supabase.removeChannel(ch);
