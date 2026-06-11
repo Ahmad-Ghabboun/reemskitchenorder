@@ -4,7 +4,9 @@ import { Plus, Minus, X, Send, ArrowLeft, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ReadyAlerts } from "@/components/ReadyAlerts";
+import { readMenuCache, writeMenuCache, sweepMenuCaches, menuListsEqual } from "@/lib/menu-cache";
 import type { MenuItem, CartLine, Event } from "@/lib/booth-types";
+
 
 const LS_AUDIO_UNLOCKED = "booth_cashier_audio_unlocked";
 
