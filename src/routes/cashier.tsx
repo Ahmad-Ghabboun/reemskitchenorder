@@ -27,6 +27,15 @@ function CashierPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [sending, setSending] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem(LS_AUDIO_UNLOCKED) === "1";
+  });
+
+  const enableAudio = () => {
+    sessionStorage.setItem(LS_AUDIO_UNLOCKED, "1");
+    setAudioUnlocked(true);
+  };
 
   useEffect(() => {
     let active = true;
