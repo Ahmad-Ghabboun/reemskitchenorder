@@ -34,6 +34,51 @@ function KitchenPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [now, setNow] = useState(() => Date.now());
+  const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem(LS_KITCHEN_AUDIO_UNLOCKED) === "1";
+  });
+  const [muted, setMuted] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(LS_KITCHEN_MUTED) === "1";
+  });
+  const engineRef = useRef<AudioEngine | null>(null);
+  const audioReadyRef = useRef(false);
+
+  // Init engine once
+  useEffect(() => {
+    const eng = new AudioEngine();
+    eng.setMuted(muted);
+    engineRef.current = eng;
+    return () => {
+      eng.dispose();
+      engineRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(LS_KITCHEN_MUTED, muted ? "1" : "0");
+    engineRef.current?.setMuted(muted);
+  }, [muted]);
+
+  const enableAudio = async () => {
+    const ok = await engineRef.current?.unlock();
+    if (ok) {
+      sessionStorage.setItem(LS_KITCHEN_AUDIO_UNLOCKED, "1");
+      setAudioUnlocked(true);
+      audioReadyRef.current = true;
+    }
+  };
+
+  // If unlock flag persisted from session, unlock engine silently on mount
+  useEffect(() => {
+    if (audioUnlocked && !audioReadyRef.current) {
+      engineRef.current?.unlock().then((ok) => {
+        if (ok) audioReadyRef.current = true;
+      });
+    }
+  }, [audioUnlocked]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -43,6 +88,7 @@ function KitchenPage() {
   useEffect(() => {
     let active = true;
     const load = async () => {
+
       const { data: o } = await supabase
         .from("orders")
         .select("*")
