@@ -1,9 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Minus, X, Send, ArrowLeft } from "lucide-react";
+import { Plus, Minus, X, Send, ArrowLeft, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ReadyAlerts } from "@/components/ReadyAlerts";
 import type { MenuItem, CartLine } from "@/lib/booth-types";
+
+const LS_AUDIO_UNLOCKED = "booth_cashier_audio_unlocked";
 
 export const Route = createFileRoute("/cashier")({
   head: () => ({
