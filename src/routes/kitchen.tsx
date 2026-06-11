@@ -1,9 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { Check, ArrowLeft } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ArrowLeft, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { AudioEngine } from "@/lib/booth-audio";
 import type { Order, OrderItem } from "@/lib/booth-types";
+
+const LS_KITCHEN_AUDIO_UNLOCKED = "booth_kitchen_audio_unlocked";
+const LS_KITCHEN_MUTED = "booth_kitchen_muted";
+
 
 export const Route = createFileRoute("/kitchen")({
   head: () => ({
