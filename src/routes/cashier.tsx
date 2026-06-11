@@ -28,6 +28,7 @@ function uid() {
 function CashierPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [activeEvent, setActiveEvent] = useState<Event | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [sending, setSending] = useState(false);
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() => {
@@ -47,23 +48,46 @@ function CashierPage() {
         if (active) setMenu([]);
         return;
       }
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("menu_items")
         .select("*")
         .eq("event_id", eventId)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
-      if (active && data) setMenu(data as MenuItem[]);
+      if (!active) return;
+      if (error || !data) {
+        // Network/fetch failure — keep whatever is on screen (cache or empty)
+        const hasCache = !!readMenuCache(eventId);
+        if (!hasCache) setLoadError(true);
+        return;
+      }
+      setLoadError(false);
+      const fresh = data as MenuItem[];
+      setMenu((prev) => (menuListsEqual(prev, fresh) ? prev : fresh));
+      writeMenuCache(eventId, fresh);
     };
     const loadActive = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("events")
         .select("*")
         .eq("is_active", true)
         .maybeSingle();
       if (!active) return;
+      if (error) {
+        // Couldn't reach the server — rely on any cached menu for the previously known event.
+        return;
+      }
       const ev = (data as Event | null) ?? null;
       setActiveEvent(ev);
+      sweepMenuCaches(ev?.id ?? null);
+      // Hydrate instantly from cache if present
+      if (ev) {
+        const cached = readMenuCache(ev.id);
+        if (cached) setMenu(cached.items);
+        else setMenu([]);
+      } else {
+        setMenu([]);
+      }
       loadMenu(ev?.id ?? null);
     };
     loadActive();
@@ -79,6 +103,8 @@ function CashierPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+
 
 
   const addToCart = (m: MenuItem) => {
