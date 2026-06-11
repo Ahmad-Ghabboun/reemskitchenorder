@@ -1,0 +1,166 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Check, ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import type { Order, OrderItem } from "@/lib/booth-types";
+
+export const Route = createFileRoute("/kitchen")({
+  head: () => ({
+    meta: [
+      { title: "Kitchen — Booth Orders" },
+      { name: "description", content: "Live kitchen order display." },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" },
+    ],
+  }),
+  component: KitchenPage,
+});
+
+function timeAgo(iso: string, now: number) {
+  const s = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+function KitchenPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [items, setItems] = useState<OrderItem[]>([]);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data: o } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("status", "pending")
+        .order("created_at", { ascending: true });
+      if (!active) return;
+      const orderList = (o ?? []) as Order[];
+      setOrders(orderList);
+      if (orderList.length === 0) {
+        setItems([]);
+        return;
+      }
+      const { data: it } = await supabase
+        .from("order_items")
+        .select("*")
+        .in("order_id", orderList.map((x) => x.id))
+        .order("position", { ascending: true });
+      if (active) setItems((it ?? []) as OrderItem[]);
+    };
+    load();
+    const ch = supabase
+      .channel("kitchen_live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, load)
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(ch);
+    };
+  }, []);
+
+  const byOrder = useMemo(() => {
+    const map: Record<string, OrderItem[]> = {};
+    for (const it of items) (map[it.order_id] ||= []).push(it);
+    return map;
+  }, [items]);
+
+  const markDone = async (o: Order) => {
+    const prev = orders;
+    setOrders((c) => c.filter((x) => x.id !== o.id));
+    const { error } = await supabase
+      .from("orders")
+      .update({ status: "done", completed_at: new Date().toISOString() })
+      .eq("id", o.id);
+    if (error) {
+      console.error(error);
+      toast.error("Failed to mark done");
+      setOrders(prev);
+    }
+  };
+
+  return (
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-6 py-4 flex items-center gap-4">
+        <Link to="/" className="p-2 -ml-2 rounded-lg active:bg-accent">
+          <ArrowLeft className="w-6 h-6" />
+        </Link>
+        <h1 className="text-3xl font-black tracking-tight">Kitchen</h1>
+        <span className="ml-auto px-4 py-2 rounded-xl bg-card border border-border text-2xl font-black">
+          {orders.length} <span className="text-base font-semibold text-muted-foreground">pending</span>
+        </span>
+      </header>
+
+      <main className="p-6">
+        {orders.length === 0 ? (
+          <div className="text-center text-muted-foreground py-24 text-2xl">
+            No pending orders.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {orders.map((o) => {
+              const its = byOrder[o.id] ?? [];
+              return (
+                <article
+                  key={o.id}
+                  className="rounded-2xl bg-card border-2 border-border shadow-lg flex flex-col overflow-hidden"
+                >
+                  <div className="flex items-baseline justify-between px-5 py-4 bg-accent/40 border-b border-border">
+                    <div className="text-5xl font-black tracking-tight text-primary">#{o.order_number}</div>
+                    <div className="text-xl font-bold text-muted-foreground tabular-nums">
+                      {timeAgo(o.created_at, now)}
+                    </div>
+                  </div>
+                  <ul className="flex-1 px-5 py-4 flex flex-col gap-4">
+                    {its.map((it) => (
+                      <li key={it.id} className="border-b border-border/60 last:border-b-0 pb-3 last:pb-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-2xl font-black tabular-nums">{it.quantity}×</span>
+                          <span className="text-2xl font-bold leading-tight">{it.name_snapshot}</span>
+                        </div>
+                        {it.removed_ingredients.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {it.removed_ingredients.map((ing) => (
+                              <span
+                                key={ing}
+                                className="px-2 py-1 rounded-md bg-destructive/20 text-destructive font-black uppercase text-sm tracking-wide"
+                              >
+                                NO {ing}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {it.notes && (
+                          <div className="mt-2 px-3 py-2 rounded-lg bg-warning/15 text-warning font-bold text-lg">
+                            “{it.notes}”
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => markDone(o)}
+                    className="w-full h-20 bg-success text-success-foreground font-black text-2xl flex items-center justify-center gap-3 active:scale-[0.98] transition-transform"
+                  >
+                    <Check className="w-8 h-8" />
+                    Done
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
