@@ -153,7 +153,7 @@ function KitchenPage() {
                     className="w-full h-20 bg-success text-success-foreground font-black text-2xl flex items-center justify-center gap-3 active:scale-[0.98] transition-transform"
                   >
                     <Check className="w-8 h-8" />
-                    Done
+                    Ready
                   </button>
                 </article>
               );
