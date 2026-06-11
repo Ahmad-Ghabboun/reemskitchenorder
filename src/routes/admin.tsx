@@ -28,21 +28,46 @@ const empty: Draft = { name: "", price: "0", ingredients: [], sort_order: 0 };
 
 function AdminPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [activeEvent, setActiveEvent] = useState<Event | null>(null);
   const [draft, setDraft] = useState<Draft>(empty);
   const [newIng, setNewIng] = useState("");
   const editing = !!draft.id;
 
-  const load = async () => {
+  const load = async (eventId: string | null) => {
+    if (!eventId) {
+      setItems([]);
+      return;
+    }
     const { data } = await supabase
       .from("menu_items")
       .select("*")
+      .eq("event_id", eventId)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
     if (data) setItems(data as MenuItem[]);
   };
+
   useEffect(() => {
-    load();
+    const loadActive = async () => {
+      const { data } = await supabase
+        .from("events")
+        .select("*")
+        .eq("is_active", true)
+        .maybeSingle();
+      const ev = (data as Event | null) ?? null;
+      setActiveEvent(ev);
+      load(ev?.id ?? null);
+    };
+    loadActive();
+    const ch = supabase
+      .channel("admin_active_event")
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, loadActive)
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, []);
+
 
   const resetDraft = () => {
     setDraft(empty);
