@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChefHat, Smartphone, Settings } from "lucide-react";
+import { ChefHat, Smartphone, Settings, Calendar } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -20,7 +20,7 @@ function Index() {
         </h1>
         <p className="mt-2 text-muted-foreground">Pick a device view</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-3xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-3xl">
         <Link
           to="/cashier"
           className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-primary text-primary-foreground p-8 font-bold text-xl shadow-lg active:scale-95 transition-transform"
@@ -44,7 +44,15 @@ function Index() {
           <Settings className="w-12 h-12" />
           Menu Admin
         </Link>
+        <Link
+          to="/events"
+          className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-card text-card-foreground border-2 border-border p-8 font-bold text-xl shadow-lg active:scale-95 transition-transform"
+        >
+          <Calendar className="w-12 h-12" />
+          Events
+        </Link>
       </div>
     </div>
   );
 }
+
