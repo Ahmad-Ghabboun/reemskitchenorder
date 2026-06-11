@@ -14,10 +14,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      events: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       menu_items: {
         Row: {
           created_at: string
           default_ingredients: string[]
+          event_id: string | null
           id: string
           name: string
           price: number
@@ -26,6 +48,7 @@ export type Database = {
         Insert: {
           created_at?: string
           default_ingredients?: string[]
+          event_id?: string | null
           id?: string
           name: string
           price?: number
@@ -34,12 +57,21 @@ export type Database = {
         Update: {
           created_at?: string
           default_ingredients?: string[]
+          event_id?: string | null
           id?: string
           name?: string
           price?: number
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "menu_items_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_items: {
         Row: {
