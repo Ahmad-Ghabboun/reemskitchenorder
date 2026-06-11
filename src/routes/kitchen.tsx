@@ -231,6 +231,20 @@ function KitchenPage() {
           </div>
         )}
       </main>
+
+      {!audioUnlocked && (
+        <button
+          onClick={enableAudio}
+          className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col items-center justify-center gap-4 p-8 text-center"
+        >
+          <Volume2 className="w-16 h-16 text-primary" />
+          <div className="text-4xl font-black">Enable Sounds</div>
+          <div className="text-xl text-muted-foreground max-w-md">
+            Tap anywhere to enable the new-order chime on this device.
+          </div>
+        </button>
+      )}
     </div>
+
   );
 }
