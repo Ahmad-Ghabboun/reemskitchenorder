@@ -158,10 +158,18 @@ function KitchenPage() {
           <ArrowLeft className="w-6 h-6" />
         </Link>
         <h1 className="text-3xl font-black tracking-tight">Kitchen</h1>
-        <span className="ml-auto px-4 py-2 rounded-xl bg-card border border-border text-2xl font-black">
+        <button
+          onClick={() => setMuted((m) => !m)}
+          className="ml-auto p-3 rounded-xl bg-card border border-border active:scale-95"
+          aria-label={muted ? "Unmute chime" : "Mute chime"}
+        >
+          {muted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
+        </button>
+        <span className="px-4 py-2 rounded-xl bg-card border border-border text-2xl font-black">
           {orders.length} <span className="text-base font-semibold text-muted-foreground">pending</span>
         </span>
       </header>
+
 
       <main className="p-6">
         {orders.length === 0 ? (
