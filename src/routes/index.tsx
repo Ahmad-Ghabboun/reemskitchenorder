@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChefHat, Smartphone, Settings, Calendar } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -13,7 +14,10 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 gap-8">
+    <div className="relative min-h-screen flex flex-col items-center justify-center px-6 py-12 gap-8">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="text-center">
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-foreground">
           Booth Orders

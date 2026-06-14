@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ArrowLeft, Volume2, VolumeX } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AudioEngine } from "@/lib/booth-audio";
@@ -165,6 +166,7 @@ function KitchenPage() {
         >
           {muted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
         </button>
+        <ThemeToggle />
         <span className="px-4 py-2 rounded-xl bg-card border border-border text-2xl font-black">
           {orders.length} <span className="text-base font-semibold text-muted-foreground">pending</span>
         </span>

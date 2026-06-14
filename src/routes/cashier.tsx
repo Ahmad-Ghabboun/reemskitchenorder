@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Plus, Minus, X, Send, ArrowLeft, Volume2 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ReadyAlerts } from "@/components/ReadyAlerts";
@@ -181,6 +182,7 @@ function CashierPage() {
         <span className="ml-auto text-sm text-muted-foreground">
           {cart.length} {cart.length === 1 ? "item" : "items"}
         </span>
+        <ThemeToggle />
       </header>
 
       <ReadyAlerts audioUnlocked={audioUnlocked} onRequestUnlock={enableAudio} />
