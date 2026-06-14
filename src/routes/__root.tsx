@@ -7,11 +7,12 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { THEME_INIT_SCRIPT, getStoredTheme, type Theme } from "../lib/theme";
 
 function NotFoundComponent() {
   return (
@@ -108,6 +109,7 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
       <body>
@@ -120,12 +122,24 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [toasterTheme, setToasterTheme] = useState<Theme>(() =>
+    typeof document !== "undefined" ? getStoredTheme() : "dark"
+  );
+
+  useEffect(() => {
+    const el = document.documentElement;
+    const obs = new MutationObserver(() => {
+      setToasterTheme(el.classList.contains("light") ? "light" : "dark");
+    });
+    obs.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      <Toaster theme="dark" position="top-center" richColors />
+      <Toaster theme={toasterTheme} position="top-center" richColors />
     </QueryClientProvider>
   );
 }
