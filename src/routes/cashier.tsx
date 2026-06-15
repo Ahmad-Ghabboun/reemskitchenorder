@@ -5,6 +5,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ReadyAlerts } from "@/components/ReadyAlerts";
+import { PreparingAlerts } from "@/components/PreparingAlerts";
 import { readMenuCache, writeMenuCache, sweepMenuCaches, menuListsEqual } from "@/lib/menu-cache";
 import type { MenuItem, CartLine, Event } from "@/lib/booth-types";
 
@@ -186,6 +187,7 @@ function CashierPage() {
       </header>
 
       <ReadyAlerts audioUnlocked={audioUnlocked} onRequestUnlock={enableAudio} />
+      <PreparingAlerts />
 
       {!audioUnlocked && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex items-center justify-center p-6">
