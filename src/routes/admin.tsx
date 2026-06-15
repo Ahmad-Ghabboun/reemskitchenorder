@@ -42,6 +42,7 @@ function AdminPage() {
   const [activeEvent, setActiveEvent] = useState<Event | null>(null);
   const [draft, setDraft] = useState<Draft>(empty);
   const [newIng, setNewIng] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
   const editing = !!draft.id;
 
   const load = async (eventId: string | null) => {
