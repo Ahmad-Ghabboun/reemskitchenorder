@@ -120,6 +120,7 @@ function CashierPage() {
         removed_ingredients: [],
         quantity: 1,
         notes: "",
+        extra_hot_sauce: false,
       },
     ]);
   };
