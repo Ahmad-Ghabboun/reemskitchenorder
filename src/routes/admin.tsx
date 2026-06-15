@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Trash2, ArrowLeft, Save, X, Calendar } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Save, X, Calendar, RotateCcw } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -146,7 +146,28 @@ function AdminPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <h1 className="text-xl font-black tracking-tight">Menu Admin</h1>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={async () => {
+              if (
+                !confirm(
+                  "Delete ALL orders and reset order # to 1?\n\nThis cannot be undone.",
+                )
+              )
+                return;
+              const { error } = await supabase.rpc("reset_order_number_seq");
+              if (error) {
+                toast.error("Could not reset order numbers.");
+                console.error(error);
+              } else {
+                toast.success("Orders cleared, order # reset to 1.");
+              }
+            }}
+            className="h-9 px-3 rounded-lg bg-destructive/15 text-destructive font-semibold text-sm flex items-center gap-1.5 active:scale-95"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset Order #
+          </button>
           <ThemeToggle />
         </div>
       </header>
