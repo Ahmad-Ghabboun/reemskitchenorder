@@ -156,7 +156,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      reset_order_number_seq: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
