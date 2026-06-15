@@ -269,6 +269,13 @@ export function ReadyAlerts({ audioUnlocked, onRequestUnlock }: Props) {
                           ))}
                         </div>
                       )}
+                      {it.extra_hot_sauce && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="px-2 py-1 rounded-md bg-warning text-warning-foreground font-black uppercase tracking-wide text-sm">
+                            + HOT SAUCE
+                          </span>
+                        </div>
+                      )}
                       {it.notes && (
                         <div className="mt-1 px-2 py-1 rounded-md bg-warning/15 text-warning font-bold text-sm">
                           “{it.notes}”

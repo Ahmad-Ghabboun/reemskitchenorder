@@ -1,13 +1,23 @@
-Step 3 — Kitchen Display: Hot Sauce Tag
+## Step 4: Hot Sauce tag on cashier strips
 
-1. **Query check** — `kitchen.tsx` already uses `.select("*")` on `order_items`, so `extra_hot_sauce` is fetched. No query change needed.
+### Context
+The `extra_hot_sauce` boolean is already stored on `order_items` (Step 1) and rendered on `/kitchen` (Step 3). The cashier's **Preparing** and **Ready** strips still omit it.
 
-2. **Render the tag** — In each order-item card inside `kitchen.tsx`, after the existing "NO [ingredient]" block and before the notes block, conditionally render a separate row for hot sauce:
-   - Only when `it.extra_hot_sauce === true`
-   - Tag text: bold uppercase "+ HOT SAUCE"
-   - Styling: amber/warning color scheme using the same tokens as `/cashier` (`bg-warning text-warning-foreground` with rounded-md, px-2 py-1, font-black, uppercase, tracking-wide, text-sm)
-   - Placed in its own `flex flex-wrap gap-2` container with `mt-2` spacing, so it never mixes with the red removed-ingredient tags.
+### Changes
 
-3. **Scope** — No changes to `cashier.tsx`, `PreparingAlerts.tsx`, or `ReadyAlerts.tsx`.
+#### `src/components/PreparingAlerts.tsx`
+- For each order-item row, after the red "NO [ingredient]" block and before the notes block, add a conditional `+ HOT SAUCE` tag.
+- Only render when `it.extra_hot_sauce === true`.
+- Tag styling: `bg-warning text-warning-foreground rounded-md px-2 py-1 font-black uppercase tracking-wide text-sm`.
+- Placed in its own `flex flex-wrap gap-2` container, separate from the removed-ingredient group.
 
-4. **Verify** — Build must pass. After that, place a test order with hot sauce + a removed ingredient, then screenshot `/kitchen` to confirm both tag groups appear separately.
+#### `src/components/ReadyAlerts.tsx`
+- Identical addition: same conditional tag, same styling, same placement (after removed ingredients, before notes).
+
+### Verification
+- Build passes.
+- Test order with Hot Sauce + a removed ingredient on `/cashier` — confirm the **Preparing** card shows both the red "NO [ingredient]" group and the amber "+ HOT SAUCE" group separately.
+- After kitchen marks it ready, confirm the **Ready** card also shows the tag.
+
+### Scope
+No changes to `cashier.tsx`, `kitchen.tsx`, or database schema in this step.
