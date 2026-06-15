@@ -212,6 +212,13 @@ function KitchenPage() {
                             ))}
                           </div>
                         )}
+                        {it.extra_hot_sauce && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="px-2 py-1 rounded-md bg-warning text-warning-foreground font-black uppercase text-sm tracking-wide">
+                              + HOT SAUCE
+                            </span>
+                          </div>
+                        )}
                         {it.notes && (
                           <div className="mt-2 px-3 py-2 rounded-lg bg-warning/15 text-warning font-bold text-lg">
                             “{it.notes}”
