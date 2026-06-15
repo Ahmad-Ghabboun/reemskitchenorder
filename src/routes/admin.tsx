@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Plus, Trash2, ArrowLeft, Save, X, Calendar } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { MenuItem, Event } from "@/lib/booth-types";
@@ -146,9 +145,6 @@ function AdminPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <h1 className="text-xl font-black tracking-tight">Menu Admin</h1>
-        <div className="ml-auto">
-          <ThemeToggle />
-        </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-4 pt-4">
