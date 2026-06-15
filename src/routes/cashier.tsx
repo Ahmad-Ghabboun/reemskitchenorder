@@ -161,6 +161,7 @@ function CashierPage() {
         removed_ingredients: l.removed_ingredients,
         notes: l.notes.trim(),
         position: i,
+        extra_hot_sauce: l.extra_hot_sauce,
       }));
       const { error: e2 } = await supabase.from("order_items").insert(items);
       if (e2) throw e2;
@@ -274,26 +275,47 @@ function CashierPage() {
                 </div>
 
                 {l.default_ingredients.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {l.default_ingredients.map((ing) => {
-                      const removed = l.removed_ingredients.includes(ing);
-                      return (
-                        <button
-                          key={ing}
-                          onClick={() => toggleIngredient(l.uid, ing)}
-                          className={
-                            "px-3 py-2 rounded-full text-sm font-semibold border-2 transition-colors " +
-                            (removed
-                              ? "bg-destructive/15 border-destructive text-destructive line-through"
-                              : "bg-secondary border-transparent text-secondary-foreground")
-                          }
-                        >
-                          {removed ? "−" : ""}{ing}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-3">
+                    <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">Already Added</div>
+                    <div className="flex flex-wrap gap-2">
+                      {l.default_ingredients.map((ing) => {
+                        const removed = l.removed_ingredients.includes(ing);
+                        return (
+                          <button
+                            key={ing}
+                            onClick={() => toggleIngredient(l.uid, ing)}
+                            className={
+                              "px-3 py-2 rounded-full text-sm font-semibold border-2 transition-colors " +
+                              (removed
+                                ? "bg-destructive/15 border-destructive text-destructive line-through"
+                                : "bg-secondary border-transparent text-secondary-foreground")
+                            }
+                          >
+                            {removed ? "−" : ""}{ing}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
+
+                <div className={l.default_ingredients.length > 0 ? "mt-3 pt-3 border-t border-border" : "mt-3"}>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">Add-ons</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => updateLine(l.uid, { extra_hot_sauce: !l.extra_hot_sauce })}
+                      className={
+                        "px-3 py-2 rounded-full text-sm font-semibold border-2 transition-colors " +
+                        (l.extra_hot_sauce
+                          ? "bg-warning text-warning-foreground border-warning"
+                          : "bg-transparent border-warning text-warning")
+                      }
+                    >
+                      + Hot Sauce
+                    </button>
+                  </div>
+                </div>
+
 
                 <input
                   type="text"
