@@ -1,20 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Trash2, ArrowLeft, Save, X, Calendar, RotateCcw } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Save, X, Calendar } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { MenuItem, Event } from "@/lib/booth-types";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 
 export const Route = createFileRoute("/admin")({
@@ -42,7 +32,6 @@ function AdminPage() {
   const [activeEvent, setActiveEvent] = useState<Event | null>(null);
   const [draft, setDraft] = useState<Draft>(empty);
   const [newIng, setNewIng] = useState("");
-  const [resetOpen, setResetOpen] = useState(false);
   const editing = !!draft.id;
 
   const load = async (eventId: string | null) => {
@@ -157,41 +146,10 @@ function AdminPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <h1 className="text-xl font-black tracking-tight">Menu Admin</h1>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setResetOpen(true)}
-            aria-label="Reset order numbers"
-            title="Reset Order #"
-            className="p-2 rounded-lg border border-input bg-card active:scale-95 transition-colors"
-          >
-            <RotateCcw className="w-5 h-5" />
-          </button>
+        <div className="ml-auto">
           <ThemeToggle />
         </div>
       </header>
-
-      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset order numbering?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete ALL existing orders and reset numbering to start at #1. This cannot be undone. Use this only for clearing test data before going live.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                const { error } = await supabase.rpc("reset_order_number_seq");
-                if (error) toast.error("Could not reset order numbers");
-                else toast.success("Order numbers reset — next order will be #1.");
-              }}
-            >
-              Reset
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <div className="max-w-4xl mx-auto px-4 pt-4">
         <Link
