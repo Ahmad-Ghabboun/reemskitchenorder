@@ -34,6 +34,7 @@ export type OrderItem = {
   notes: string;
   position: number;
   created_at: string;
+  extra_hot_sauce: boolean;
 };
 
 export type CartLine = {
@@ -44,4 +45,5 @@ export type CartLine = {
   removed_ingredients: string[];
   quantity: number;
   notes: string;
+  extra_hot_sauce: boolean;
 };

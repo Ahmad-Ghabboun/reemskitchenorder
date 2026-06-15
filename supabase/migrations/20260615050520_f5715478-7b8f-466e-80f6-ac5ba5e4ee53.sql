@@ -1,0 +1,1 @@
+ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS extra_hot_sauce boolean NOT NULL DEFAULT false;
