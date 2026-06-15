@@ -76,6 +76,7 @@ export type Database = {
       order_items: {
         Row: {
           created_at: string
+          extra_hot_sauce: boolean
           id: string
           menu_item_id: string | null
           name_snapshot: string
@@ -87,6 +88,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          extra_hot_sauce?: boolean
           id?: string
           menu_item_id?: string | null
           name_snapshot: string
@@ -98,6 +100,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          extra_hot_sauce?: boolean
           id?: string
           menu_item_id?: string | null
           name_snapshot?: string
