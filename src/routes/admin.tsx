@@ -175,7 +175,7 @@ function AdminPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset order numbering?</AlertDialogTitle>
             <AlertDialogDescription>
-              Reset order numbering back to #1? This only affects new orders going forward — existing order history is not changed.
+              This will permanently delete ALL existing orders and reset numbering to start at #1. This cannot be undone. Use this only for clearing test data before going live.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
