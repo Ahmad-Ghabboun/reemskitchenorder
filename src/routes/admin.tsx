@@ -156,10 +156,41 @@ function AdminPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <h1 className="text-xl font-black tracking-tight">Menu Admin</h1>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setResetOpen(true)}
+            aria-label="Reset order numbers"
+            title="Reset Order #"
+            className="p-2 rounded-lg border border-input bg-card active:scale-95 transition-colors"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
           <ThemeToggle />
         </div>
       </header>
+
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset order numbering?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Reset order numbering back to #1? This only affects new orders going forward — existing order history is not changed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                const { error } = await supabase.rpc("reset_order_number_seq");
+                if (error) toast.error("Could not reset order numbers");
+                else toast.success("Order numbers reset — next order will be #1.");
+              }}
+            >
+              Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="max-w-4xl mx-auto px-4 pt-4">
         <Link
