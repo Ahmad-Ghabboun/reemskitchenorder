@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.reset_order_number_seq();
