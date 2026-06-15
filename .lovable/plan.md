@@ -1,37 +1,13 @@
-## Goal
-Add a "+ Hot Sauce" add-on chip to each cart line on `/cashier`, grouped under labeled "Already Added" and "Add-ons" sections with a divider between them. Persist `extra_hot_sauce` on order submission.
+Step 3 — Kitchen Display: Hot Sauce Tag
 
-## Edits to `src/routes/cashier.tsx` (targeted, no rewrite)
+1. **Query check** — `kitchen.tsx` already uses `.select("*")` on `order_items`, so `extra_hot_sauce` is fetched. No query change needed.
 
-### 1. Cart-line chip section (currently lines ~276–296)
-Replace the single chip block with two labeled groups:
+2. **Render the tag** — In each order-item card inside `kitchen.tsx`, after the existing "NO [ingredient]" block and before the notes block, conditionally render a separate row for hot sauce:
+   - Only when `it.extra_hot_sauce === true`
+   - Tag text: bold uppercase "+ HOT SAUCE"
+   - Styling: amber/warning color scheme using the same tokens as `/cashier` (`bg-warning text-warning-foreground` with rounded-md, px-2 py-1, font-black, uppercase, tracking-wide, text-sm)
+   - Placed in its own `flex flex-wrap gap-2` container with `mt-2` spacing, so it never mixes with the red removed-ingredient tags.
 
-```text
-[Already Added]
-  Rice  Chicken  Garlic Sauce  ...     ← existing chips (unchanged behavior)
-─────────────────────────────────────── ← divider (border-t border-border)
-[Add-ons]
-  + Hot Sauce                            ← new toggle chip
-```
+3. **Scope** — No changes to `cashier.tsx`, `PreparingAlerts.tsx`, or `ReadyAlerts.tsx`.
 
-- Render the "Already Added" group only if `l.default_ingredients.length > 0`, with a small `text-xs uppercase tracking-wider text-muted-foreground font-bold` label. Existing chip rendering and `toggleIngredient` behavior unchanged.
-- Always render the "Add-ons" group with the same label style.
-- Divider: a thin `border-t border-border` between the two groups when both render; if "Already Added" is empty, only render "Add-ons" (no divider).
-
-### 2. Hot Sauce chip
-- One chip labeled `+ Hot Sauce`.
-- `onClick`: `updateLine(l.uid, { extra_hot_sauce: !l.extra_hot_sauce })`.
-- Not selected (default): amber outline — `bg-transparent border-2 border-warning text-warning`.
-- Selected: solid amber — `bg-warning text-warning-foreground border-2 border-warning`.
-- Same shape/padding as existing chips (`px-3 py-2 rounded-full text-sm font-semibold transition-colors`).
-
-### 3. Order submission (line ~156)
-Add `extra_hot_sauce: l.extra_hot_sauce` to the `items` map passed into `supabase.from("order_items").insert(items)`.
-
-## Out of scope
-- No changes to `kitchen.tsx`, `PreparingAlerts.tsx`, `ReadyAlerts.tsx`.
-- No DB / type changes (Step 1 already handled).
-- No changes to existing default-ingredient chip behavior.
-
-## Verification
-Build passes; place a test order with Hot Sauce selected on one line and a default ingredient removed on another; share a screenshot of the cart showing both labeled groups with the chip in its selected (solid amber) state.
+4. **Verify** — Build must pass. After that, place a test order with hot sauce + a removed ingredient, then screenshot `/kitchen` to confirm both tag groups appear separately.
