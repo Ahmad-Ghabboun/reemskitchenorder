@@ -131,7 +131,7 @@ export function PreparingAlerts({ orders, items, menu }: Props) {
             const its = byOrder[o.id] ?? [];
             const isEditing = editingId === o.id;
             return (
-              <li key={o.id} className="p-3">
+              <li key={o.id} className={"p-3 rounded-xl " + (isEditing ? "animate-edit-pulse" : "")}>
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-3xl font-black text-warning">#{o.order_number}</div>
                   {isEditing ? (
