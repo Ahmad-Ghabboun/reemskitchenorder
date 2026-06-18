@@ -127,3 +127,19 @@
   }
   button { touch-action: manipulation; }
 }
+
+@keyframes edit-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-warning) 30%, transparent),
+                0 0 10px 0 color-mix(in oklch, var(--color-warning) 25%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-warning) 75%, transparent),
+                0 0 22px 4px color-mix(in oklch, var(--color-warning) 55%, transparent);
+  }
+}
+
+@utility animate-edit-pulse {
+  animation: edit-pulse 1.2s ease-in-out infinite;
+  border-radius: 0.75rem;
+}
