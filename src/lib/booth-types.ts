@@ -22,6 +22,7 @@ export type Order = {
   created_at: string;
   completed_at: string | null;
   ready_at: string | null;
+  edited_at: string | null;
 };
 
 export type OrderItem = {

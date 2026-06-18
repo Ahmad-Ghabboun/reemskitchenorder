@@ -31,8 +31,15 @@ export class AudioEngine {
         this.masterGain = this.ctx.createGain();
         this.masterGain.gain.value = this.volume;
         this.masterGain.connect(this.ctx.destination);
+        // Self-heal if the context gets suspended/interrupted by the OS later.
+        this.ctx.onstatechange = () => {
+          const state = this.ctx?.state;
+          if (this.unlocked && (state === "suspended" || (state as string) === "interrupted")) {
+            this.ctx?.resume().catch(() => {});
+          }
+        };
       }
-      if (this.ctx.state === "suspended") await this.ctx.resume();
+      if (this.ctx.state !== "running") await this.ctx.resume();
       // Play a silent buffer to fully unlock iOS audio.
       const buf = this.ctx.createBuffer(1, 1, 22050);
       const src = this.ctx.createBufferSource();
@@ -44,6 +51,22 @@ export class AudioEngine {
     } catch (e) {
       console.error("Audio unlock failed", e);
       return false;
+    }
+  }
+
+  /** Public hook: call from visibilitychange/focus to wake the context after iOS suspends it. */
+  resume() {
+    if (!this.unlocked || !this.ctx) return;
+    if (this.ctx.state !== "running") {
+      this.ctx.resume().catch(() => {});
+    }
+  }
+
+  /** Fire-and-forget: ensure ctx is running before scheduling sound. */
+  private ensureRunning() {
+    if (!this.ctx) return;
+    if (this.ctx.state !== "running") {
+      this.ctx.resume().catch(() => {});
     }
   }
 
@@ -63,9 +86,9 @@ export class AudioEngine {
 
   beep() {
     if (!this.ctx || !this.masterGain || this.muted) return;
+    this.ensureRunning();
     const ctx = this.ctx;
     const t0 = ctx.currentTime;
-    // Two short urgent beeps
     const playOne = (start: number, freq: number) => {
       const o = ctx.createOscillator();
       const g = ctx.createGain();
@@ -85,9 +108,10 @@ export class AudioEngine {
     playOne(t0 + 0.22, 1175);
   }
 
-  // Pleasant one-shot two-note bell chime (E6 -> A6). Respects mute/volume.
+  // Pleasant ascending two-note bell chime (E6 -> A6). New-order signal.
   chime() {
     if (!this.ctx || !this.masterGain || this.muted) return;
+    this.ensureRunning();
     const ctx = this.ctx;
     const t0 = ctx.currentTime;
     const playBell = (start: number, freq: number, dur: number) => {
@@ -107,12 +131,37 @@ export class AudioEngine {
     playBell(t0 + 0.18, 1760, 0.6); // A6
   }
 
-
+  // Distinct descending three-note motif for "order edited" — clearly different from chime().
+  editChime() {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    this.ensureRunning();
+    const ctx = this.ctx;
+    const t0 = ctx.currentTime;
+    const playNote = (start: number, freq: number, dur: number) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sawtooth";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.35, start + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      o.connect(g);
+      g.connect(this.masterGain!);
+      o.start(start);
+      o.stop(start + dur + 0.05);
+    };
+    playNote(t0, 1760, 0.18);       // A6
+    playNote(t0 + 0.16, 1318.5, 0.18); // E6
+    playNote(t0 + 0.32, 1046.5, 0.32); // C6
+  }
 
   startLoop() {
     if (this.loopTimer) return;
     this.beep();
-    this.loopTimer = setInterval(() => this.beep(), this.intervalMs);
+    this.loopTimer = setInterval(() => {
+      this.ensureRunning();
+      this.beep();
+    }, this.intervalMs);
   }
 
   stopLoop() {

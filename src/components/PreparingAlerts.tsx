@@ -1,46 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { ChefHat, ChevronUp, ChevronDown } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useMemo } from "react";
+import { useState } from "react";
+import { ChefHat, ChevronUp, ChevronDown, Pencil } from "lucide-react";
 import type { Order, OrderItem } from "@/lib/booth-types";
 
-export function PreparingAlerts() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [items, setItems] = useState<OrderItem[]>([]);
-  const [collapsed, setCollapsed] = useState(false);
+type Props = {
+  orders: Order[];
+  items: OrderItem[];
+  onEdit: (order: Order) => void;
+};
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      const { data: o } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("status", "pending")
-        .order("created_at", { ascending: true });
-      if (!active) return;
-      const list = (o ?? []) as Order[];
-      setOrders(list);
-      if (list.length === 0) {
-        setItems([]);
-        return;
-      }
-      const { data: it } = await supabase
-        .from("order_items")
-        .select("*")
-        .in("order_id", list.map((x) => x.id))
-        .order("position", { ascending: true });
-      if (active) setItems((it ?? []) as OrderItem[]);
-    };
-    load();
-    const ch = supabase
-      .channel("cashier_preparing")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, load)
-      .subscribe();
-    return () => {
-      active = false;
-      supabase.removeChannel(ch);
-    };
-  }, []);
+export function PreparingAlerts({ orders, items, onEdit }: Props) {
+  const [collapsed, setCollapsed] = useState(false);
 
   const byOrder = useMemo(() => {
     const map: Record<string, OrderItem[]> = {};
@@ -72,7 +42,17 @@ export function PreparingAlerts() {
             const its = byOrder[o.id] ?? [];
             return (
               <li key={o.id} className="p-3">
-                <div className="text-3xl font-black text-warning">#{o.order_number}</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-3xl font-black text-warning">#{o.order_number}</div>
+                  <button
+                    onClick={() => onEdit(o)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-warning/15 text-warning font-bold text-sm active:scale-95 border border-warning/40"
+                    aria-label={`Edit order ${o.order_number}`}
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit
+                  </button>
+                </div>
                 <ul className="mt-2 flex flex-col gap-2">
                   {its.map((it) => (
                     <li key={it.id}>
@@ -101,7 +81,7 @@ export function PreparingAlerts() {
                       )}
                       {it.notes && (
                         <div className="mt-1 px-2 py-1 rounded-md bg-warning/15 text-warning font-bold text-sm">
-                          “{it.notes}”
+                          "{it.notes}"
                         </div>
                       )}
                     </li>
