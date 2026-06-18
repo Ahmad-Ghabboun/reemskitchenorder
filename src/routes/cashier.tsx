@@ -34,7 +34,6 @@ function CashierPage() {
   const [loadError, setLoadError] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [sending, setSending] = useState(false);
-  const [editing, setEditing] = useState<Order | null>(null);
   const feed = useOrdersFeed();
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
