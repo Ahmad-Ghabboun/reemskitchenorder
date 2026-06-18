@@ -12,11 +12,30 @@ const LS_VOL = "booth_cashier_volume";
 type Props = {
   audioUnlocked: boolean;
   onRequestUnlock: () => void;
+  orders: Order[];
+  items: OrderItem[];
 };
 
-export function ReadyAlerts({ audioUnlocked, onRequestUnlock }: Props) {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [items, setItems] = useState<OrderItem[]>([]);
+export function ReadyAlerts({ audioUnlocked, onRequestUnlock, orders: ordersProp, items }: Props) {
+  // Local mirror so optimistic "picked up" removals don't fight the feed.
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const orders = useMemo(() => ordersProp.filter((o) => !hidden.has(o.id)), [ordersProp, hidden]);
+
+  // Drop ids from `hidden` once they've actually left the feed.
+  useEffect(() => {
+    if (hidden.size === 0) return;
+    const live = new Set(ordersProp.map((o) => o.id));
+    let changed = false;
+    const next = new Set(hidden);
+    for (const id of hidden) {
+      if (!live.has(id)) {
+        next.delete(id);
+        changed = true;
+      }
+    }
+    if (changed) setHidden(next);
+  }, [ordersProp, hidden]);
+
   const [snoozed, setSnoozed] = useState<Record<string, number>>({});
   const [, setNowTick] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
@@ -33,7 +52,6 @@ export function ReadyAlerts({ audioUnlocked, onRequestUnlock }: Props) {
   const engineRef = useRef<AudioEngine | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
-  // Init audio engine once
   useEffect(() => {
     const eng = new AudioEngine();
     eng.setMuted(muted);
@@ -46,7 +64,6 @@ export function ReadyAlerts({ audioUnlocked, onRequestUnlock }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist + sync mute/volume
   useEffect(() => {
     localStorage.setItem(LS_MUTE, muted ? "1" : "0");
     engineRef.current?.setMuted(muted);
@@ -56,11 +73,26 @@ export function ReadyAlerts({ audioUnlocked, onRequestUnlock }: Props) {
     engineRef.current?.setVolume(volume);
   }, [volume]);
 
-  // Unlock audio when user enables
   useEffect(() => {
     if (audioUnlocked) {
       engineRef.current?.unlock();
     }
+  }, [audioUnlocked]);
+
+  // Wake the audio context if iOS suspended it while the tab was hidden.
+  useEffect(() => {
+    if (!audioUnlocked) return;
+    const onWake = () => {
+      if (document.visibilityState === "visible") {
+        engineRef.current?.resume();
+      }
+    };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+    return () => {
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
+    };
   }, [audioUnlocked]);
 
   // Wake Lock
@@ -99,48 +131,11 @@ export function ReadyAlerts({ audioUnlocked, onRequestUnlock }: Props) {
     };
   }, [audioUnlocked]);
 
-  // Load + subscribe to ready orders
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      const { data: o } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("status", "ready")
-        .order("ready_at", { ascending: true, nullsFirst: true });
-      if (!active) return;
-      const list = (o ?? []) as Order[];
-      setOrders(list);
-      if (list.length === 0) {
-        setItems([]);
-        return;
-      }
-      const { data: it } = await supabase
-        .from("order_items")
-        .select("*")
-        .in("order_id", list.map((x) => x.id))
-        .order("position", { ascending: true });
-      if (active) setItems((it ?? []) as OrderItem[]);
-    };
-    load();
-    const ch = supabase
-      .channel("cashier_ready")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, load)
-      .subscribe();
-    return () => {
-      active = false;
-      supabase.removeChannel(ch);
-    };
-  }, []);
-
-  // Tick every second for snooze expiry + countdown labels
   useEffect(() => {
     const t = setInterval(() => setNowTick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Clean expired snoozes
   useEffect(() => {
     const now = Date.now();
     const expired = Object.entries(snoozed).filter(([, until]) => until <= now);
@@ -163,7 +158,6 @@ export function ReadyAlerts({ audioUnlocked, onRequestUnlock }: Props) {
   const activeAlerts = orders.filter((o) => !snoozed[o.id] || snoozed[o.id] <= now);
   const shouldBeep = audioUnlocked && !muted && activeAlerts.length > 0;
 
-  // Drive the beep loop
   useEffect(() => {
     const eng = engineRef.current;
     if (!eng) return;
@@ -172,8 +166,11 @@ export function ReadyAlerts({ audioUnlocked, onRequestUnlock }: Props) {
   }, [shouldBeep]);
 
   const markPickedUp = async (o: Order) => {
-    const prev = orders;
-    setOrders((c) => c.filter((x) => x.id !== o.id));
+    setHidden((h) => {
+      const n = new Set(h);
+      n.add(o.id);
+      return n;
+    });
     const { error } = await supabase
       .from("orders")
       .update({ status: "done", completed_at: new Date().toISOString() })
@@ -181,7 +178,11 @@ export function ReadyAlerts({ audioUnlocked, onRequestUnlock }: Props) {
     if (error) {
       console.error(error);
       toast.error("Failed to mark picked up");
-      setOrders(prev);
+      setHidden((h) => {
+        const n = new Set(h);
+        n.delete(o.id);
+        return n;
+      });
     }
   };
 
@@ -278,7 +279,7 @@ export function ReadyAlerts({ audioUnlocked, onRequestUnlock }: Props) {
                       )}
                       {it.notes && (
                         <div className="mt-1 px-2 py-1 rounded-md bg-warning/15 text-warning font-bold text-sm">
-                          “{it.notes}”
+                          "{it.notes}"
                         </div>
                       )}
                     </li>
