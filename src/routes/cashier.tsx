@@ -201,17 +201,8 @@ function CashierPage() {
       <PreparingAlerts
         orders={feed.pending}
         items={feed.items}
-        onEdit={(o) => setEditing(o)}
+        menu={menu}
       />
-
-      {editing && (
-        <EditOrderSheet
-          order={editing}
-          items={feed.items.filter((it) => it.order_id === editing.id)}
-          menu={menu}
-          onClose={() => setEditing(null)}
-        />
-      )}
 
       {!audioUnlocked && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex items-center justify-center p-6">
