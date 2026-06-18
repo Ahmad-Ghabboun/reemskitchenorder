@@ -6,8 +6,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ReadyAlerts } from "@/components/ReadyAlerts";
 import { PreparingAlerts } from "@/components/PreparingAlerts";
+import { EditOrderSheet } from "@/components/EditOrderSheet";
+import { useOrdersFeed } from "@/hooks/useOrdersFeed";
 import { readMenuCache, writeMenuCache, sweepMenuCaches, menuListsEqual } from "@/lib/menu-cache";
-import type { MenuItem, CartLine, Event } from "@/lib/booth-types";
+import type { MenuItem, CartLine, Event, Order } from "@/lib/booth-types";
 
 
 const LS_AUDIO_UNLOCKED = "booth_cashier_audio_unlocked";
@@ -33,6 +35,8 @@ function CashierPage() {
   const [loadError, setLoadError] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [sending, setSending] = useState(false);
+  const [editing, setEditing] = useState<Order | null>(null);
+  const feed = useOrdersFeed();
   const [audioUnlocked, setAudioUnlocked] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return sessionStorage.getItem(LS_AUDIO_UNLOCKED) === "1";
@@ -188,8 +192,26 @@ function CashierPage() {
         <ThemeToggle />
       </header>
 
-      <ReadyAlerts audioUnlocked={audioUnlocked} onRequestUnlock={enableAudio} />
-      <PreparingAlerts />
+      <ReadyAlerts
+        audioUnlocked={audioUnlocked}
+        onRequestUnlock={enableAudio}
+        orders={feed.ready}
+        items={feed.items}
+      />
+      <PreparingAlerts
+        orders={feed.pending}
+        items={feed.items}
+        onEdit={(o) => setEditing(o)}
+      />
+
+      {editing && (
+        <EditOrderSheet
+          order={editing}
+          items={feed.items.filter((it) => it.order_id === editing.id)}
+          menu={menu}
+          onClose={() => setEditing(null)}
+        />
+      )}
 
       {!audioUnlocked && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex items-center justify-center p-6">
