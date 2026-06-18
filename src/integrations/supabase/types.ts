@@ -131,6 +131,7 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string
+          edited_at: string | null
           id: string
           order_number: number
           ready_at: string | null
@@ -139,6 +140,7 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           created_at?: string
+          edited_at?: string | null
           id?: string
           order_number?: number
           ready_at?: string | null
@@ -147,6 +149,7 @@ export type Database = {
         Update: {
           completed_at?: string | null
           created_at?: string
+          edited_at?: string | null
           id?: string
           order_number?: number
           ready_at?: string | null
@@ -160,6 +163,10 @@ export type Database = {
     }
     Functions: {
       reset_order_number_seq: { Args: never; Returns: undefined }
+      save_order_edit: {
+        Args: { p_items: Json; p_order_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
