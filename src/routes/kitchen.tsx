@@ -81,6 +81,22 @@ function KitchenPage() {
     }
   }, [audioUnlocked]);
 
+  // Wake audio context if iOS suspended it while the tab was hidden.
+  useEffect(() => {
+    if (!audioUnlocked) return;
+    const onWake = () => {
+      if (document.visibilityState === "visible") {
+        engineRef.current?.resume();
+      }
+    };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+    return () => {
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
+    };
+  }, [audioUnlocked]);
+
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
@@ -88,6 +104,7 @@ function KitchenPage() {
 
   useEffect(() => {
     let active = true;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const load = async () => {
 
       const { data: o } = await supabase
@@ -109,6 +126,13 @@ function KitchenPage() {
         .order("position", { ascending: true });
       if (active) setItems((it ?? []) as OrderItem[]);
     };
+    const scheduleLoad = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        load();
+      }, 150);
+    };
     load();
     const ch = supabase
       .channel("kitchen_live")
@@ -122,12 +146,29 @@ function KitchenPage() {
           }
         },
       )
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, load)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders" },
+        (payload) => {
+          const newRow = payload.new as Partial<Order> | undefined;
+          const oldRow = payload.old as Partial<Order> | undefined;
+          if (
+            audioReadyRef.current &&
+            newRow?.status === "pending" &&
+            newRow?.edited_at &&
+            newRow.edited_at !== oldRow?.edited_at
+          ) {
+            engineRef.current?.editChime();
+          }
+        },
+      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, scheduleLoad)
+      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, scheduleLoad)
       .subscribe();
 
     return () => {
       active = false;
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(ch);
     };
   }, []);
