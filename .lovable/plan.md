@@ -1,10 +1,16 @@
-## Add pulsing amber border to Preparing cards in edit mode
+The existing `edit-pulse` keyframes in `src/styles.css` use `color-mix` values. Replace them with the exact rgba-based animation the user specified:
 
-**What:** When a Preparing strip card is in inline edit mode, apply a continuous pulsing amber border/glow animation that stops immediately on Save or Cancel.
+```css
+@keyframes edit-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(212, 144, 10, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(212, 144, 10, 0.75); }
+}
 
-**How:**
-1. **`src/styles.css`** — Add a `@keyframes edit-pulse` that alternates `box-shadow` from a dim amber glow (`0 0 0 2px var(--color-warning)/30`) to a bright one (`0 0 0 4px var(--color-warning)/70`), on a ~1.2s ease-in-out infinite loop. Register via `@utility edit-pulse` so Tailwind v4 exposes it as a utility class (or add it to the `@layer base` as a raw `.animate-edit-pulse` class if `@utility` is not yet present).
+.animate-edit-pulse {
+  animation: edit-pulse 1.2s ease-in-out infinite;
+}
+```
 
-2. **`src/components/PreparingAlerts.tsx`** — On the card `<li>` element, conditionally add the animation class when `isEditing === true`. Remove the class when edit mode ends (Save success or Cancel). No other component changes.
+In `src/components/PreparingAlerts.tsx`, the outer `<li>` card already conditionally adds `animate-edit-pulse` when `isEditing === true` (line 134). No JSX change is needed.
 
-**Verification:** Build passes. Edit a Preparing card — the card border glows amber and pulses continuously. Tap Save/Cancel — glow stops instantly and card reverts to the standard non-editing border state.
+After the CSS edit, verify the build passes, then take a screenshot of a Preparing card in edit mode on /kitchen to confirm the amber glow is visible.
