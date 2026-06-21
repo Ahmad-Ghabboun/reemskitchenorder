@@ -6,29 +6,28 @@ type Feed = {
   pending: Order[];
   ready: Order[];
   items: OrderItem[];
+  reconnecting: boolean;
 };
 
-/**
- * Single Realtime channel + debounced reload for cashier's two strips.
- * Replaces the per-component subscriptions that were stacking up on `orders`
- * and `order_items` and causing cross-device lag.
- */
 export function useOrdersFeed(): Feed {
   const [pending, setPending] = useState<Order[]>([]);
   const [ready, setReady] = useState<Order[]>([]);
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [reconnecting, setReconnecting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let active = true;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
 
     const load = async () => {
-      const { data: o } = await supabase
+      const { data: o, error } = await supabase
         .from("orders")
         .select("*")
         .in("status", ["pending", "ready"])
         .order("created_at", { ascending: true });
       if (!active) return;
+      if (!error) setReconnecting(false);
       const list = (o ?? []) as Order[];
       const p = list.filter((x) => x.status === "pending");
       const r = list
@@ -63,20 +62,48 @@ export function useOrdersFeed(): Feed {
       }, 150);
     };
 
-    load();
+    const subscribe = () =>
+      supabase
+        .channel("cashier_orders_feed")
+        .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, scheduleLoad)
+        .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, scheduleLoad)
+        .subscribe();
 
-    const ch = supabase
-      .channel("cashier_orders_feed")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, scheduleLoad)
-      .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, scheduleLoad)
-      .subscribe();
+    load();
+    ch = subscribe();
+
+    const onResume = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      const joined = ch?.state === "joined";
+      if (!joined) {
+        setReconnecting(true);
+        try {
+          if (!supabase.realtime.isConnected()) supabase.realtime.connect();
+        } catch {
+          /* noop */
+        }
+        if (ch) supabase.removeChannel(ch);
+        ch = subscribe();
+      }
+      scheduleLoad();
+    };
+
+    document.addEventListener("visibilitychange", onResume);
+    window.addEventListener("focus", onResume);
+    window.addEventListener("pageshow", onResume);
 
     return () => {
       active = false;
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      supabase.removeChannel(ch);
+      document.removeEventListener("visibilitychange", onResume);
+      window.removeEventListener("focus", onResume);
+      window.removeEventListener("pageshow", onResume);
+      if (ch) supabase.removeChannel(ch);
     };
   }, []);
 
-  return useMemo(() => ({ pending, ready, items }), [pending, ready, items]);
+  return useMemo(
+    () => ({ pending, ready, items, reconnecting }),
+    [pending, ready, items, reconnecting],
+  );
 }

@@ -1,7 +1,18 @@
 import { useMemo, useState } from "react";
-import { ChefHat, ChevronUp, ChevronDown, Pencil, Plus, Minus } from "lucide-react";
+import { ChefHat, ChevronUp, ChevronDown, Pencil, Plus, Minus, Trash2, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { MenuItem, Order, OrderItem } from "@/lib/booth-types";
 
 type Props = {
@@ -26,6 +37,9 @@ export function PreparingAlerts({ orders, items, menu }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [lines, setLines] = useState<EditLine[]>([]);
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [swapOpenLineId, setSwapOpenLineId] = useState<string | null>(null);
 
   const byOrder = useMemo(() => {
     const map: Record<string, OrderItem[]> = {};
@@ -66,6 +80,25 @@ export function PreparingAlerts({ orders, items, menu }: Props) {
 
   const updateLine = (id: string, patch: Partial<EditLine>) =>
     setLines((c) => c.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+
+  const swapLineTo = (lineId: string, picked: MenuItem) => {
+    setLines((c) =>
+      c.map((l) => {
+        if (l.id !== lineId) return l;
+        if (l.menu_item_id === picked.id) return l;
+        return {
+          ...l,
+          menu_item_id: picked.id,
+          name_snapshot: picked.name,
+          default_ingredients: [...picked.default_ingredients],
+          removed_ingredients: [],
+          extra_hot_sauce: false,
+          notes: "",
+        };
+      }),
+    );
+    setSwapOpenLineId(null);
+  };
 
   const toggleIngredient = (id: string, ing: string) =>
     setLines((c) =>
@@ -109,6 +142,29 @@ export function PreparingAlerts({ orders, items, menu }: Props) {
     }
   };
 
+  const deleteOrder = async (orderId: string, orderNumber: number) => {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const { error: itemsErr } = await supabase
+        .from("order_items")
+        .delete()
+        .eq("order_id", orderId);
+      if (itemsErr) throw itemsErr;
+      const { error: orderErr } = await supabase.from("orders").delete().eq("id", orderId);
+      if (orderErr) throw orderErr;
+      toast.success(`Order #${orderNumber} deleted`, { duration: 1800 });
+      setConfirmDeleteId(null);
+      setEditingId(null);
+      setLines([]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete order");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="sticky top-14 z-10 mx-2 mt-2 rounded-2xl border-2 border-warning shadow-xl overflow-hidden bg-card">
       <div className="flex items-center gap-2 px-3 py-2 bg-warning text-warning-foreground">
@@ -138,14 +194,14 @@ export function PreparingAlerts({ orders, items, menu }: Props) {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={cancelEdit}
-                        disabled={saving}
+                        disabled={saving || deleting}
                         className="px-3 py-2 rounded-lg bg-secondary text-secondary-foreground font-bold text-sm active:scale-95 border border-border disabled:opacity-50"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => saveEdit(o.id, o.order_number)}
-                        disabled={saving || lines.length === 0}
+                        disabled={saving || deleting || lines.length === 0}
                         className="px-3 py-2 rounded-lg bg-warning text-warning-foreground font-bold text-sm active:scale-95 border border-warning disabled:opacity-50"
                       >
                         {saving ? "Saving…" : "Save"}
@@ -201,88 +257,166 @@ export function PreparingAlerts({ orders, items, menu }: Props) {
                 )}
 
                 {isEditing && (
-                  <ul className="mt-3 flex flex-col gap-3">
-                    {lines.map((l) => (
-                      <li key={l.id} className="rounded-xl bg-background/40 border border-border p-3">
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-bold text-base leading-tight">{l.name_snapshot}</div>
+                  <>
+                    <ul className="mt-3 flex flex-col gap-3">
+                      {lines.map((l) => (
+                        <li key={l.id} className="rounded-xl bg-background/40 border border-border p-3">
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <Popover
+                                open={swapOpenLineId === l.id}
+                                onOpenChange={(open) => setSwapOpenLineId(open ? l.id : null)}
+                              >
+                                <PopoverTrigger asChild>
+                                  <button
+                                    className="flex items-center gap-1.5 text-left font-bold text-base leading-tight px-2 py-1 -mx-2 -my-1 rounded-md hover:bg-secondary/60 active:bg-secondary/80 active:scale-[0.99] transition-colors"
+                                    aria-label="Change item"
+                                  >
+                                    <span className="truncate">{l.name_snapshot}</span>
+                                    <ChevronsUpDown className="w-4 h-4 opacity-60 shrink-0" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent align="start" className="p-1 w-64 max-h-72 overflow-y-auto">
+                                  <ul className="flex flex-col">
+                                    {menu.length === 0 && (
+                                      <li className="px-3 py-2 text-sm text-muted-foreground">
+                                        No menu items
+                                      </li>
+                                    )}
+                                    {menu.map((m) => {
+                                      const selected = m.id === l.menu_item_id;
+                                      return (
+                                        <li key={m.id}>
+                                          <button
+                                            onClick={() => swapLineTo(l.id, m)}
+                                            className={
+                                              "w-full text-left px-3 py-2.5 rounded-md text-base font-semibold active:scale-[0.99] " +
+                                              (selected
+                                                ? "bg-warning/20 text-warning"
+                                                : "hover:bg-secondary")
+                                            }
+                                          >
+                                            {m.name}
+                                          </button>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => updateLine(l.id, { quantity: Math.max(1, l.quantity - 1) })}
+                                className="w-9 h-9 rounded-lg bg-secondary text-secondary-foreground grid place-items-center active:scale-95"
+                                aria-label="Decrease"
+                              >
+                                <Minus className="w-4 h-4" />
+                              </button>
+                              <span className="w-7 text-center font-black text-lg tabular-nums">{l.quantity}</span>
+                              <button
+                                onClick={() => updateLine(l.id, { quantity: l.quantity + 1 })}
+                                className="w-9 h-9 rounded-lg bg-secondary text-secondary-foreground grid place-items-center active:scale-95"
+                                aria-label="Increase"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              onClick={() => updateLine(l.id, { quantity: Math.max(1, l.quantity - 1) })}
-                              className="w-9 h-9 rounded-lg bg-secondary text-secondary-foreground grid place-items-center active:scale-95"
-                              aria-label="Decrease"
-                            >
-                              <Minus className="w-4 h-4" />
-                            </button>
-                            <span className="w-7 text-center font-black text-lg tabular-nums">{l.quantity}</span>
-                            <button
-                              onClick={() => updateLine(l.id, { quantity: l.quantity + 1 })}
-                              className="w-9 h-9 rounded-lg bg-secondary text-secondary-foreground grid place-items-center active:scale-95"
-                              aria-label="Increase"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
 
-                        {l.default_ingredients.length > 0 && (
-                          <div className="mt-3">
+                          {l.default_ingredients.length > 0 && (
+                            <div className="mt-3">
+                              <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">
+                                Already Added
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {l.default_ingredients.map((ing) => {
+                                  const removed = l.removed_ingredients.includes(ing);
+                                  return (
+                                    <button
+                                      key={ing}
+                                      onClick={() => toggleIngredient(l.id, ing)}
+                                      className={
+                                        "px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-colors " +
+                                        (removed
+                                          ? "bg-destructive/15 border-destructive text-destructive line-through"
+                                          : "bg-secondary border-transparent text-secondary-foreground")
+                                      }
+                                    >
+                                      {ing}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="mt-3 pt-3 border-t border-border">
                             <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">
-                              Already Added
+                              Add-ons
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              {l.default_ingredients.map((ing) => {
-                                const removed = l.removed_ingredients.includes(ing);
-                                return (
-                                  <button
-                                    key={ing}
-                                    onClick={() => toggleIngredient(l.id, ing)}
-                                    className={
-                                      "px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-colors " +
-                                      (removed
-                                        ? "bg-destructive/15 border-destructive text-destructive line-through"
-                                        : "bg-secondary border-transparent text-secondary-foreground")
-                                    }
-                                  >
-                                    {ing}
-                                  </button>
-                                );
-                              })}
+                              <button
+                                onClick={() => updateLine(l.id, { extra_hot_sauce: !l.extra_hot_sauce })}
+                                className={
+                                  "px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-colors " +
+                                  (l.extra_hot_sauce
+                                    ? "bg-warning text-warning-foreground border-warning"
+                                    : "bg-transparent border-warning text-warning")
+                                }
+                              >
+                                + Hot Sauce
+                              </button>
                             </div>
                           </div>
-                        )}
 
-                        <div className="mt-3 pt-3 border-t border-border">
-                          <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">
-                            Add-ons
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => updateLine(l.id, { extra_hot_sauce: !l.extra_hot_sauce })}
-                              className={
-                                "px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-colors " +
-                                (l.extra_hot_sauce
-                                  ? "bg-warning text-warning-foreground border-warning"
-                                  : "bg-transparent border-warning text-warning")
-                              }
-                            >
-                              + Hot Sauce
-                            </button>
-                          </div>
-                        </div>
+                          <input
+                            type="text"
+                            value={l.notes}
+                            onChange={(e) => updateLine(l.id, { notes: e.target.value })}
+                            placeholder="Notes (e.g. extra spicy)"
+                            className="mt-3 w-full bg-input/50 rounded-lg px-3 py-2.5 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                          />
+                        </li>
+                      ))}
+                    </ul>
 
-                        <input
-                          type="text"
-                          value={l.notes}
-                          onChange={(e) => updateLine(l.id, { notes: e.target.value })}
-                          placeholder="Notes (e.g. extra spicy)"
-                          className="mt-3 w-full bg-input/50 rounded-lg px-3 py-2.5 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                      </li>
-                    ))}
-                  </ul>
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <button
+                        onClick={() => setConfirmDeleteId(o.id)}
+                        disabled={saving || deleting}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-destructive/10 text-destructive font-bold text-sm border border-destructive/40 active:scale-[0.99] disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete Order
+                      </button>
+                    </div>
+
+                    <AlertDialog
+                      open={confirmDeleteId === o.id}
+                      onOpenChange={(open) => !open && !deleting && setConfirmDeleteId(null)}
+                    >
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete order #{o.order_number}?</AlertDialogTitle>
+                          <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            disabled={deleting}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              deleteOrder(o.id, o.order_number);
+                            }}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            {deleting ? "Deleting…" : "Delete"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
                 )}
               </li>
             );
