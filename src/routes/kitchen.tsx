@@ -228,7 +228,7 @@ function KitchenPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-4 flex items-center gap-3">
         <Link to="/" className="p-2 -ml-2 rounded-lg active:bg-accent shrink-0">
           <ArrowLeft className="w-6 h-6" />
         </Link>
