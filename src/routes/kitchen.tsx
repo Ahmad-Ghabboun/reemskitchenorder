@@ -297,8 +297,8 @@ function KitchenPage() {
                     {its.map((it) => (
                       <li key={it.id} className="border-b border-border/60 last:border-b-0 pb-2 last:pb-0">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-lg font-black tabular-nums">{it.quantity}×</span>
-                          <span className="text-lg font-bold leading-tight">{it.name_snapshot}</span>
+                          <span className="text-[20px] font-black tabular-nums">{it.quantity}×</span>
+                          <span className="text-[20px] font-bold leading-tight">{it.name_snapshot}</span>
                         </div>
                         {it.removed_ingredients.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
