@@ -228,7 +228,7 @@ function KitchenPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center gap-3">
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-4 flex items-center gap-3">
         <Link to="/" className="p-2 -ml-2 rounded-lg active:bg-accent shrink-0">
           <ArrowLeft className="w-6 h-6" />
         </Link>
@@ -241,8 +241,8 @@ function KitchenPage() {
             {itemTotals.map(([name, qty]) => (
               <span
                 key={name}
-                className="shrink-0 px-2 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/40 font-bold whitespace-nowrap"
-                style={{ fontSize: 12, borderRadius: 999 }}
+                className="shrink-0 px-4 py-2 bg-orange-500 text-white border border-orange-600 font-extrabold whitespace-nowrap"
+                style={{ fontSize: 20, borderRadius: 999 }}
               >
                 {name} × {qty}
               </span>
@@ -297,8 +297,8 @@ function KitchenPage() {
                     {its.map((it) => (
                       <li key={it.id} className="border-b border-border/60 last:border-b-0 pb-2 last:pb-0">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-lg font-black tabular-nums">{it.quantity}×</span>
-                          <span className="text-lg font-bold leading-tight">{it.name_snapshot}</span>
+                          <span className="text-[20px] font-black tabular-nums">{it.quantity}×</span>
+                          <span className="text-[20px] font-bold leading-tight">{it.name_snapshot}</span>
                         </div>
                         {it.removed_ingredients.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
@@ -329,7 +329,7 @@ function KitchenPage() {
                   </ul>
                   <button
                     onClick={() => markDone(o)}
-                    className="w-full h-14 bg-success text-success-foreground font-black text-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                    className="w-full py-4 bg-success text-success-foreground font-black text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                   >
                     <Check className="w-6 h-6" />
                     Ready
