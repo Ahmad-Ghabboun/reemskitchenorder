@@ -241,8 +241,8 @@ function KitchenPage() {
             {itemTotals.map(([name, qty]) => (
               <span
                 key={name}
-                className="shrink-0 px-2 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/40 font-bold whitespace-nowrap"
-                style={{ fontSize: 12, borderRadius: 999 }}
+                className="shrink-0 px-4 py-2 bg-orange-500 text-white border border-orange-600 font-extrabold whitespace-nowrap"
+                style={{ fontSize: 20, borderRadius: 999 }}
               >
                 {name} × {qty}
               </span>
