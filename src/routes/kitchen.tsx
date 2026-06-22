@@ -329,7 +329,7 @@ function KitchenPage() {
                   </ul>
                   <button
                     onClick={() => markDone(o)}
-                    className="w-full h-14 bg-success text-success-foreground font-black text-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                    className="w-full py-4 bg-success text-success-foreground font-black text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                   >
                     <Check className="w-6 h-6" />
                     Ready
